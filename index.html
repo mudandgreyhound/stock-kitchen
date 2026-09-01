@@ -104,7 +104,12 @@
 </div>
 
 <script>
-const API = (location.origin.includes('file') ? 'https://kitchen_stock.mobile1234.site' : location.origin);
+// ⚙️ ตั้ง URL ของ Backend API ที่นี่ (server ที่รัน FastAPI :8600)
+//   - ถ้า frontend อยู่บน GitHub Pages: ใส่ URL server เต็ม เช่น 'https://kitchen-api.mobile1234.site'
+//   - ถ้า frontend เสิร์ฟจาก server เดียวกับ API: ใช้ '' (same-origin)
+//   ⚠️ ต้องเป็น https ถ้า frontend เป็น https (กัน mixed-content ถูก browser บล็อก)
+const API_BASE = 'https://kitchen_stock.mobile1234.site';   // ← แก้ตรงนี้ให้ตรง server จริง
+const API = API_BASE || location.origin;
 const TOKEN_KEY = 'ks_token';
 const getTok = ()=>{ try{return localStorage.getItem(TOKEN_KEY)}catch{return null} };
 const setTok = (t)=>{ try{ t?localStorage.setItem(TOKEN_KEY,t):localStorage.removeItem(TOKEN_KEY) }catch{} };
