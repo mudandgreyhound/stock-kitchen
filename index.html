@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kitchen Stock · Dunkin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Prompt','Nunito',sans-serif;background:#faf7f3}
+  .num{font-family:'Nunito',sans-serif}
+  .card{background:#fff;border:1px solid #f0ece6;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  ::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:#e5ded5;border-radius:8px}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginView" class="hidden min-h-screen flex items-center justify-center px-4">
+  <div class="card w-full max-w-sm p-8">
+    <div class="text-center mb-6">
+      <div class="text-3xl font-extrabold" style="color:#FF671F">DUNKIN'</div>
+      <div class="text-xs font-bold tracking-widest text-gray-400 mt-1">KITCHEN STOCK</div>
+    </div>
+    <div id="loginErr" class="hidden mb-3 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2"></div>
+    <label class="block text-xs font-bold text-gray-500 mb-1">Username</label>
+    <input id="lgUser" class="w-full mb-3 px-3 py-2 rounded-lg border border-gray-200 focus:border-orange-400 outline-none" autocomplete="username">
+    <label class="block text-xs font-bold text-gray-500 mb-1">Password</label>
+    <input id="lgPass" type="password" class="w-full mb-5 px-3 py-2 rounded-lg border border-gray-200 focus:border-orange-400 outline-none" autocomplete="current-password">
+    <button id="lgBtn" class="w-full py-2.5 rounded-lg font-bold text-white transition"
+            style="background:#FF671F">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="appView" class="hidden">
+  <!-- header -->
+  <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+      <span class="text-2xl">🏭</span>
+      <div>
+        <div class="font-extrabold text-lg" style="color:#FF671F">Kitchen Stock</div>
+        <div class="text-xs text-gray-400" id="snapLabel">—</div>
+      </div>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="userLabel" class="text-sm text-gray-500"></span>
+        <button id="refreshBtn" class="px-3 py-1.5 rounded-lg text-sm font-bold text-white" style="background:#FF671F">🔄 Refresh</button>
+        <button id="logoutBtn" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">ออก</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-5">
+    <!-- KPI -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="card p-4"><div class="text-xs font-bold text-amber-700">มูลค่าสต๊อกรวม</div>
+        <div class="num text-2xl font-extrabold" style="color:#FF671F" id="kpiVal">฿0</div></div>
+      <div class="card p-4"><div class="text-xs font-bold text-amber-700">รายการ (item)</div>
+        <div class="num text-2xl font-extrabold text-gray-800" id="kpiItems">0</div></div>
+      <div class="card p-4"><div class="text-xs font-bold text-amber-700">ครัว</div>
+        <div class="num text-2xl font-extrabold text-gray-800" id="kpiKit">0</div></div>
+      <div class="card p-4" style="border-color:#fde0c8"><div class="text-xs font-bold text-amber-700">⚠️ Dead stock</div>
+        <div class="num text-2xl font-extrabold text-red-600" id="kpiDead">0</div>
+        <div class="text-[10px] text-gray-400" id="kpiDeadHint">ไม่เคลื่อนไหว</div></div>
+    </div>
+
+    <!-- filter -->
+    <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
+        <select id="kitSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+          <option value="ALL">ทุกครัว</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[200px]">
+        <input id="searchInp" placeholder="🔍 ค้นหา รหัส / ชื่อวัตถุดิบ"
+               class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+      </div>
+      <div class="text-xs text-gray-400" id="rowCount"></div>
+    </div>
+
+    <!-- table -->
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto" style="max-height:70vh">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0" style="background:#FFF4EC">
+            <tr class="text-left text-amber-800">
+              <th class="px-3 py-2.5 font-bold">ครัว</th>
+              <th class="px-3 py-2.5 font-bold">รหัส</th>
+              <th class="px-3 py-2.5 font-bold">วัตถุดิบ</th>
+              <th class="px-3 py-2.5 font-bold text-right">คงเหลือ</th>
+              <th class="px-3 py-2.5 font-bold">หน่วย</th>
+              <th class="px-3 py-2.5 font-bold text-right">ต้นทุน/หน่วย</th>
+              <th class="px-3 py-2.5 font-bold text-right">มูลค่ารวม</th>
+              <th class="px-3 py-2.5 font-bold text-right">เคลื่อนไหวล่าสุด</th>
+            </tr>
+          </thead>
+          <tbody id="tbody" class="text-gray-700"></tbody>
+        </table>
+      </div>
+      <div id="emptyMsg" class="hidden text-center text-gray-400 py-10">ไม่มีข้อมูล</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API = (location.origin.includes('file') ? 'http://localhost:8600' : location.origin);
+const TOKEN_KEY = 'ks_token';
+const getTok = ()=>{ try{return localStorage.getItem(TOKEN_KEY)}catch{return null} };
+const setTok = (t)=>{ try{ t?localStorage.setItem(TOKEN_KEY,t):localStorage.removeItem(TOKEN_KEY) }catch{} };
+const authH  = ()=>{ const t=getTok(); return t?{'Authorization':'Bearer '+t}:{} };
+const fmt = (n,d=0)=> (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const $ = (id)=>document.getElementById(id);
+let searchTimer=null, curUser=null;
+
+async function api(path, opts={}){
+  const r = await fetch(API+path, {...opts, headers:{'Content-Type':'application/json', ...authH(), ...(opts.headers||{})}});
+  if(r.status===401){ setTok(null); showLogin(); throw new Error('unauthorized'); }
+  if(!r.ok){ const e=await r.json().catch(()=>({detail:'error'})); throw new Error(e.detail||('HTTP '+r.status)); }
+  return r.json();
+}
+
+// ── views ──
+function showLogin(){ $('loginView').classList.remove('hidden'); $('appView').classList.add('hidden'); }
+function showApp(){ $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden'); }
+
+// ── login ──
+async function doLogin(){
+  $('loginErr').classList.add('hidden');
+  const username=$('lgUser').value.trim(), password=$('lgPass').value;
+  if(!username||!password){ return; }
+  $('lgBtn').disabled=true; $('lgBtn').textContent='กำลังเข้า...';
+  try{
+    const d = await api('/api/login', {method:'POST', body:JSON.stringify({username,password})});
+    setTok(d.token); curUser=d.user;
+    showApp(); await boot();
+  }catch(e){
+    $('loginErr').textContent = e.message||'เข้าสู่ระบบไม่สำเร็จ';
+    $('loginErr').classList.remove('hidden');
+  }finally{
+    $('lgBtn').disabled=false; $('lgBtn').textContent='เข้าสู่ระบบ';
+  }
+}
+
+// ── load data ──
+async function loadKitchens(){
+  const d = await api('/api/kitchen/list');
+  const sel=$('kitSel'); const cur=sel.value;
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k}">${k}</option>`).join('');
+  sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
+}
+
+async function loadSummary(){
+  const kit=$('kitSel').value;
+  const d = await api('/api/kitchen/summary?kitchen='+encodeURIComponent(kit));
+  $('kpiVal').textContent   = '฿'+fmt(d.total_val);
+  $('kpiItems').textContent = fmt(d.items);
+  $('kpiKit').textContent   = fmt(d.kitchens);
+  $('kpiDead').textContent  = fmt(d.dead);
+  $('kpiDeadHint').textContent = 'ไม่เคลื่อนไหว >'+d.dead_days+' วัน';
+  $('snapLabel').textContent = d.snapshot ? ('อัปเดตล่าสุด '+d.snapshot) : 'ยังไม่มีข้อมูล';
+}
+
+async function loadStock(){
+  const kit=$('kitSel').value, q=$('searchInp').value.trim();
+  const d = await api(`/api/kitchen/stock?kitchen=${encodeURIComponent(kit)}&search=${encodeURIComponent(q)}`);
+  const tb=$('tbody'); tb.innerHTML='';
+  $('rowCount').textContent = d.count+' รายการ';
+  if(!d.rows.length){ $('emptyMsg').classList.remove('hidden'); return; }
+  $('emptyMsg').classList.add('hidden');
+  const html = d.rows.map(r=>{
+    const move = r.last_move ? r.last_move.slice(0,10) : '—';
+    const moveCell = r.dead
+      ? `<span class="text-red-600 font-bold">⚠️ ${move}</span>`
+      : `<span class="text-gray-500">${move}</span>`;
+    return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-bold">${fmt(r.qty,2)}</td>
+      <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
+      <td class="px-3 py-2 text-right num">฿${fmt(r.cost,2)}</td>
+      <td class="px-3 py-2 text-right num font-extrabold">฿${fmt(r.amt)}</td>
+      <td class="px-3 py-2 text-right">${moveCell}</td>
+    </tr>`;
+  }).join('');
+  tb.innerHTML = html;
+}
+
+async function reloadAll(){ await Promise.all([loadSummary(), loadStock()]); }
+async function boot(){
+  $('userLabel').textContent = curUser ? (curUser.full_name||curUser.username)+' · '+curUser.role : '';
+  await loadKitchens();
+  await reloadAll();
+}
+
+// ── events ──
+$('lgBtn').onclick = doLogin;
+$('lgPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+$('logoutBtn').onclick = ()=>{ setTok(null); curUser=null; showLogin(); };
+$('refreshBtn').onclick = ()=> reloadAll();
+$('kitSel').onchange = ()=> reloadAll();
+$('searchInp').addEventListener('input', ()=>{
+  clearTimeout(searchTimer); searchTimer=setTimeout(loadStock, 300);
+});
+
+// ── init ──
+(async function(){
+  if(getTok()){
+    try{ const m=await api('/api/me'); curUser={username:m.username, role:m.role}; showApp(); await boot(); return; }
+    catch{ /* token เสีย */ }
+  }
+  showLogin();
+})();
+</script>
+</body>
+</html>
