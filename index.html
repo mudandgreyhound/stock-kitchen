@@ -104,7 +104,7 @@
 </div>
 
 <script>
-const API = (location.origin.includes('file') ? 'http://localhost:8600' : location.origin);
+const API = (location.origin.includes('file') ? 'https://kitchen_stock.mobile1234.site' : location.origin);
 const TOKEN_KEY = 'ks_token';
 const getTok = ()=>{ try{return localStorage.getItem(TOKEN_KEY)}catch{return null} };
 const setTok = (t)=>{ try{ t?localStorage.setItem(TOKEN_KEY,t):localStorage.removeItem(TOKEN_KEY) }catch{} };
