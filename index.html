@@ -51,6 +51,14 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 py-5">
+    <!-- ── Tabs ── -->
+    <div class="flex gap-2 mb-4">
+      <button id="tabStock" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white" style="background:#FF671F">📦 สต๊อกคงเหลือ</button>
+      <button id="tabUsage" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🍩 วัตถุดิบที่ใช้/วัน</button>
+    </div>
+
+    <!-- ══════════ STOCK PANE ══════════ -->
+    <div id="stockPane">
     <!-- KPI -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       <div class="card p-4"><div class="text-xs font-bold text-amber-700">มูลค่าสต๊อกรวม</div>
@@ -100,6 +108,59 @@
       </div>
       <div id="emptyMsg" class="hidden text-center text-gray-400 py-10">ไม่มีข้อมูล</div>
     </div>
+    </div><!-- /stockPane -->
+
+    <!-- ══════════ USAGE PANE (ข้อ 2) ══════════ -->
+    <div id="usagePane" class="hidden">
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">มูลค่าวัตถุดิบที่ใช้</div>
+          <div class="num text-2xl font-extrabold" style="color:#FF671F" id="uKpiCost">฿0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ปริมาณรวม</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="uKpiQty">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">รายการ DRF</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="uKpiItems">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ครัวที่ผลิต</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="uKpiKit">0</div></div>
+      </div>
+      <!-- filter -->
+      <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">📅 วันที่</span>
+          <select id="uDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
+          <select id="uKitSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+            <option value="ALL">ทุกครัว</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[180px]">
+          <input id="uSearchInp" placeholder="🔍 ค้นหา รหัส / ชื่อวัตถุดิบ"
+                 class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+        </div>
+        <div class="text-xs text-gray-400" id="uRowCount"></div>
+      </div>
+      <!-- table -->
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto" style="max-height:70vh">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0" style="background:#FFF4EC">
+              <tr class="text-left text-amber-800">
+                <th class="px-3 py-2.5 font-bold">ครัว</th>
+                <th class="px-3 py-2.5 font-bold">รหัส</th>
+                <th class="px-3 py-2.5 font-bold">วัตถุดิบ</th>
+                <th class="px-3 py-2.5 font-bold text-right">ปริมาณที่ใช้</th>
+                <th class="px-3 py-2.5 font-bold">หน่วย</th>
+                <th class="px-3 py-2.5 font-bold text-right">มูลค่า</th>
+              </tr>
+            </thead>
+            <tbody id="uTbody" class="text-gray-700"></tbody>
+          </table>
+        </div>
+        <div id="uEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — รัน etl_kitchen_usage.py ก่อน</div>
+      </div>
+    </div><!-- /usagePane -->
   </main>
 </div>
 
@@ -193,6 +254,66 @@ async function loadStock(){
 }
 
 async function reloadAll(){ await Promise.all([loadSummary(), loadStock()]); }
+
+// ── USAGE (ข้อ 2) ──
+let uSearchTimer=null, uLoaded=false;
+async function loadUsageDates(){
+  const d = await api('/api/kitchen/usage/dates');
+  const sel=$('uDateSel');
+  sel.innerHTML = d.dates.length
+    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
+    : '<option value="">— ไม่มีข้อมูล —</option>';
+}
+async function loadUsageKitchens(){
+  const d = await api('/api/kitchen/list');
+  const sel=$('uKitSel'); const cur=sel.value;
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k}">${k}</option>`).join('');
+  sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
+}
+async function loadUsageSummary(){
+  const date=$('uDateSel').value, kit=$('uKitSel').value;
+  const d = await api(`/api/kitchen/usage/summary?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}`);
+  $('uKpiCost').textContent  = '฿'+fmt(d.total_cost);
+  $('uKpiQty').textContent   = fmt(d.total_qty,1);
+  $('uKpiItems').textContent = fmt(d.items);
+  $('uKpiKit').textContent   = fmt(d.kitchens);
+}
+async function loadUsageTable(){
+  const date=$('uDateSel').value, kit=$('uKitSel').value, q=$('uSearchInp').value.trim();
+  const d = await api(`/api/kitchen/usage?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`);
+  const tb=$('uTbody'); tb.innerHTML='';
+  $('uRowCount').textContent = d.count+' รายการ';
+  if(!d.rows.length){ $('uEmptyMsg').classList.remove('hidden'); return; }
+  $('uEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-bold">${fmt(r.qty,2)}</td>
+      <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
+      <td class="px-3 py-2 text-right num font-extrabold">฿${fmt(r.cost)}</td>
+    </tr>`).join('');
+}
+async function reloadUsage(){ await Promise.all([loadUsageSummary(), loadUsageTable()]); }
+async function bootUsage(){
+  if(!uLoaded){ await loadUsageDates(); await loadUsageKitchens(); uLoaded=true; }
+  await reloadUsage();
+}
+
+// ── tab switch ──
+function setTab(which){
+  const s=$('tabStock'), u=$('tabUsage');
+  const on ="px-4 py-2 rounded-lg text-sm font-bold text-white";
+  const off="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100";
+  if(which==='usage'){
+    $('stockPane').classList.add('hidden'); $('usagePane').classList.remove('hidden');
+    u.className=on; u.style.background='#FF671F'; s.className=off; s.style.background='';
+    bootUsage();
+  }else{
+    $('usagePane').classList.add('hidden'); $('stockPane').classList.remove('hidden');
+    s.className=on; s.style.background='#FF671F'; u.className=off; u.style.background='';
+  }
+}
 async function boot(){
   $('userLabel').textContent = curUser ? (curUser.full_name||curUser.username)+' · '+curUser.role : '';
   await loadKitchens();
@@ -203,8 +324,13 @@ async function boot(){
 $('lgBtn').onclick = doLogin;
 $('lgPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').onclick = ()=>{ setTok(null); curUser=null; showLogin(); };
-$('refreshBtn').onclick = ()=> reloadAll();
+$('refreshBtn').onclick = ()=> { if($('usagePane').classList.contains('hidden')) reloadAll(); else reloadUsage(); };
 $('kitSel').onchange = ()=> reloadAll();
+$('tabStock').onclick = ()=> setTab('stock');
+$('tabUsage').onclick = ()=> setTab('usage');
+$('uDateSel').onchange = ()=> reloadUsage();
+$('uKitSel').onchange = ()=> reloadUsage();
+$('uSearchInp').addEventListener('input', ()=>{ clearTimeout(uSearchTimer); uSearchTimer=setTimeout(loadUsageTable, 300); });
 $('searchInp').addEventListener('input', ()=>{
   clearTimeout(searchTimer); searchTimer=setTimeout(loadStock, 300);
 });
