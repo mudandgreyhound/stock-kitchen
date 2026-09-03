@@ -56,6 +56,7 @@
       <button id="tabReq" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white" style="background:#FF671F">📋 ต้องผลิต (GR)</button>
       <button id="tabStock" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📦 สต๊อกคงเหลือ</button>
       <button id="tabUsage" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🍩 วัตถุดิบที่ใช้/วัน</button>
+      <button id="tabWaste" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🗑️ ของเสีย (WIP→DRF)</button>
     </div>
 
     <!-- ══════════ REQUEST PANE (ข้อ 3 · ต้องผลิต) ══════════ -->
@@ -209,6 +210,55 @@
         <div id="uEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — รัน etl_kitchen_usage.py ก่อน</div>
       </div>
     </div><!-- /usagePane -->
+
+    <!-- ══════════ WASTE PANE (ข้อ 4 · ของเสีย WIP→DRF) ══════════ -->
+    <div id="wastePane" class="hidden">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">DRF ที่เสีย (รวม)</div>
+          <div class="num text-2xl font-extrabold text-red-600" id="wKpiQty">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">รายการ DRF</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="wKpiItems">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ครัว</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="wKpiKit">0</div></div>
+      </div>
+      <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">📅 วันที่</span>
+          <select id="wDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
+          <select id="wKitSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+            <option value="ALL">ทุกครัว</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[180px]">
+          <input id="wSearchInp" placeholder="🔍 ค้นหา รหัส / ชื่อวัตถุดิบ"
+                 class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+        </div>
+        <div class="text-xs text-gray-400" id="wRowCount"></div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="px-3 py-2 text-xs text-gray-500 border-b border-gray-100" style="background:#fff7f2">
+          💡 ของเสียครัวเป็น WIP (โดนัทกึ่งสำเร็จ) — ผันกลับเป็นวัตถุดิบดิบ (DRF) ตามสูตรผลิตจริงของแต่ละครัว
+        </div>
+        <div class="overflow-x-auto" style="max-height:70vh">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0" style="background:#FFF4EC">
+              <tr class="text-left text-amber-800">
+                <th class="px-3 py-2.5 font-bold">ครัว</th>
+                <th class="px-3 py-2.5 font-bold">รหัส DRF</th>
+                <th class="px-3 py-2.5 font-bold">วัตถุดิบ</th>
+                <th class="px-3 py-2.5 font-bold text-right">เสีย (ผันเป็น DRF)</th>
+                <th class="px-3 py-2.5 font-bold">หน่วย</th>
+              </tr>
+            </thead>
+            <tbody id="wTbody" class="text-gray-700"></tbody>
+          </table>
+        </div>
+        <div id="wEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — รัน etl_kitchen_waste.py ก่อน</div>
+      </div>
+    </div><!-- /wastePane -->
   </main>
 </div>
 
@@ -396,10 +446,53 @@ async function bootReq(){
   await reloadReq();
 }
 
-// ── tab switch (3 tabs) ──
+// ── WASTE (ข้อ 4 · ของเสีย WIP→DRF) ──
+let wSearchTimer=null, wLoaded=false;
+async function loadWasteDates(){
+  const d = await api('/api/kitchen/waste/dates');
+  const sel=$('wDateSel');
+  sel.innerHTML = d.dates.length
+    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
+    : '<option value="">— ไม่มีข้อมูล —</option>';
+}
+async function loadWasteKitchens(){
+  const d = await api('/api/kitchen/list');
+  const sel=$('wKitSel'); const cur=sel.value;
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k.code}">${k.code} · ${k.name}</option>`).join('');
+  sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
+}
+async function loadWasteSummary(){
+  const date=$('wDateSel').value, kit=$('wKitSel').value;
+  const d = await api(`/api/kitchen/waste/summary?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}`);
+  $('wKpiQty').textContent   = fmt(d.total_qty,2);
+  $('wKpiItems').textContent = fmt(d.items);
+  $('wKpiKit').textContent   = fmt(d.kitchens);
+}
+async function loadWasteTable(){
+  const date=$('wDateSel').value, kit=$('wKitSel').value, q=$('wSearchInp').value.trim();
+  const d = await api(`/api/kitchen/waste?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`);
+  const tb=$('wTbody'); tb.innerHTML='';
+  $('wRowCount').textContent = d.count+' รายการ';
+  if(!d.rows.length){ $('wEmptyMsg').classList.remove('hidden'); return; }
+  $('wEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-extrabold text-red-600">${fmt(r.qty,3)}</td>
+      <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
+    </tr>`).join('');
+}
+async function reloadWaste(){ await Promise.all([loadWasteSummary(), loadWasteTable()]); }
+async function bootWaste(){
+  if(!wLoaded){ await loadWasteDates(); await loadWasteKitchens(); wLoaded=true; }
+  await reloadWaste();
+}
+
+// ── tab switch (4 tabs) ──
 function setTab(which){
-  const tabs={req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage')};
-  const panes={req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane')};
+  const tabs={req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
+  const panes={req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
   const on ="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white";
   const off="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100";
   for(const k in panes) panes[k].classList.add('hidden');
@@ -408,6 +501,7 @@ function setTab(which){
   tabs[which].className=on; tabs[which].style.background='#FF671F';
   if(which==='req')   bootReq();
   if(which==='usage') bootUsage();
+  if(which==='waste') bootWaste();
 }
 async function boot(){
   $('userLabel').textContent = curUser ? (curUser.full_name||curUser.username)+' · '+curUser.role : '';
@@ -423,18 +517,23 @@ $('logoutBtn').onclick = ()=>{ setTok(null); curUser=null; showLogin(); };
 $('refreshBtn').onclick = ()=> {
   if(!$('reqPane').classList.contains('hidden')) reloadReq();
   else if(!$('usagePane').classList.contains('hidden')) reloadUsage();
+  else if(!$('wastePane').classList.contains('hidden')) reloadWaste();
   else reloadAll();
 };
 $('kitSel').onchange = ()=> reloadAll();
 $('tabReq').onclick = ()=> setTab('req');
 $('tabStock').onclick = ()=> setTab('stock');
 $('tabUsage').onclick = ()=> setTab('usage');
+$('tabWaste').onclick = ()=> setTab('waste');
 $('rDateSel').onchange = ()=> reloadReq();
 $('rKitSel').onchange = ()=> reloadReq();
 $('rSearchInp').addEventListener('input', ()=>{ clearTimeout(rSearchTimer); rSearchTimer=setTimeout(loadReqTable, 300); });
 $('uDateSel').onchange = ()=> reloadUsage();
 $('uKitSel').onchange = ()=> reloadUsage();
 $('uSearchInp').addEventListener('input', ()=>{ clearTimeout(uSearchTimer); uSearchTimer=setTimeout(loadUsageTable, 300); });
+$('wDateSel').onchange = ()=> reloadWaste();
+$('wKitSel').onchange = ()=> reloadWaste();
+$('wSearchInp').addEventListener('input', ()=>{ clearTimeout(wSearchTimer); wSearchTimer=setTimeout(loadWasteTable, 300); });
 $('searchInp').addEventListener('input', ()=>{
   clearTimeout(searchTimer); searchTimer=setTimeout(loadStock, 300);
 });
