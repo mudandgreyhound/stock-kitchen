@@ -93,7 +93,9 @@
                 <th class="px-3 py-2.5 font-bold">ครัว</th>
                 <th class="px-3 py-2.5 font-bold">รหัส</th>
                 <th class="px-3 py-2.5 font-bold">โดนัท</th>
-                <th class="px-3 py-2.5 font-bold text-right">ต้องผลิต (ชิ้น)</th>
+                <th class="px-3 py-2.5 font-bold text-right">ต้องผลิต (โหล)</th>
+                <th class="px-3 py-2.5 font-bold text-right">ชิ้น</th>
+                <th class="px-3 py-2.5 font-bold text-right">รวมผลิตทั้งหมด (ชิ้น)</th>
               </tr>
             </thead>
             <tbody id="rTbody" class="text-gray-700"></tbody>
@@ -375,12 +377,18 @@ async function loadReqTable(){
   $('rRowCount').textContent = d.count+' รายการ';
   if(!d.rows.length){ $('rEmptyMsg').classList.remove('hidden'); return; }
   $('rEmptyMsg').classList.add('hidden');
-  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+  tb.innerHTML = d.rows.map(r=>{
+    const q = Math.round(r.qty);
+    const doz = Math.floor(q/12), rem = q%12;
+    return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
       <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
       <td class="px-3 py-2 font-semibold">${r.code}</td>
       <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
-      <td class="px-3 py-2 text-right num font-extrabold">${fmt(r.qty)}</td>
-    </tr>`).join('');
+      <td class="px-3 py-2 text-right num font-extrabold" style="color:#FF671F">${fmt(doz)}</td>
+      <td class="px-3 py-2 text-right num">${rem>0?fmt(rem):'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num text-gray-500">${fmt(q)}</td>
+    </tr>`;
+  }).join('');
 }
 async function reloadReq(){ await Promise.all([loadReqSummary(), loadReqTable()]); }
 async function bootReq(){
