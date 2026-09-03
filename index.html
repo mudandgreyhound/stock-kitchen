@@ -212,7 +212,7 @@ async function doLogin(){
 async function loadKitchens(){
   const d = await api('/api/kitchen/list');
   const sel=$('kitSel'); const cur=sel.value;
-  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k}">${k}</option>`).join('');
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k.code}">${k.code} · ${k.name}</option>`).join('');
   sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
 }
 
@@ -267,7 +267,7 @@ async function loadUsageDates(){
 async function loadUsageKitchens(){
   const d = await api('/api/kitchen/list');
   const sel=$('uKitSel'); const cur=sel.value;
-  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k}">${k}</option>`).join('');
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k.code}">${k.code} · ${k.name}</option>`).join('');
   sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
 }
 async function loadUsageSummary(){
