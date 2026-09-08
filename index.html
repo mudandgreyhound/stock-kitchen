@@ -53,14 +53,63 @@
   <main class="max-w-7xl mx-auto px-4 py-5">
     <!-- ── Tabs ── -->
     <div class="flex gap-2 mb-4">
-      <button id="tabReq" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white" style="background:#FF671F">📋 ต้องผลิต (GR)</button>
+      <button id="tabOverview" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white" style="background:#FF671F">📊 ภาพรวม</button>
+      <button id="tabReq" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📋 ต้องผลิต (GR)</button>
       <button id="tabStock" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📦 สต๊อกคงเหลือ</button>
       <button id="tabUsage" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🍩 วัตถุดิบที่ใช้/วัน</button>
       <button id="tabWaste" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🗑️ ของเสีย (WIP→DRF)</button>
     </div>
 
+    <!-- ══════════ OVERVIEW PANE (หน้าภาพรวม · default) ══════════ -->
+    <div id="overviewPane">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิต (ล่าสุด)</div>
+          <div class="num text-2xl font-extrabold" style="color:#FF671F" id="ovReqQty">0</div>
+          <div class="text-[11px] text-gray-400" id="ovReqSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต๊อก</div>
+          <div class="num text-2xl font-extrabold" style="color:#E91E8C" id="ovStockVal">฿0</div>
+          <div class="text-[11px] text-gray-400" id="ovStockSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้ (ล่าสุด)</div>
+          <div class="num text-2xl font-extrabold text-blue-600" id="ovUsageCost">฿0</div>
+          <div class="text-[11px] text-gray-400" id="ovUsageSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสีย (ล่าสุด)</div>
+          <div class="num text-2xl font-extrabold text-red-500" id="ovWasteQty">0</div>
+          <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="card p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span>📋</span><span class="text-sm font-bold text-gray-700">ต้องผลิต — ล่าสุด</span>
+            <button class="ml-auto text-xs font-bold" style="color:#FF671F" onclick="setTab('req')">ดูทั้งหมด →</button>
+          </div>
+          <div id="ovReqList" class="space-y-1"></div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span>📦</span><span class="text-sm font-bold text-gray-700">สต๊อก — เคลื่อนไหวล่าสุด</span>
+            <button class="ml-auto text-xs font-bold" style="color:#E91E8C" onclick="setTab('stock')">ดูทั้งหมด →</button>
+          </div>
+          <div id="ovStockList" class="space-y-1"></div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span>🍩</span><span class="text-sm font-bold text-gray-700">วัตถุดิบใช้ — ล่าสุด</span>
+            <button class="ml-auto text-xs font-bold text-blue-600" onclick="setTab('usage')">ดูทั้งหมด →</button>
+          </div>
+          <div id="ovUsageList" class="space-y-1"></div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span>🗑️</span><span class="text-sm font-bold text-gray-700">ของเสีย — ล่าสุด</span>
+            <button class="ml-auto text-xs font-bold text-red-500" onclick="setTab('waste')">ดูทั้งหมด →</button>
+          </div>
+          <div id="ovWasteList" class="space-y-1"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════ REQUEST PANE (ข้อ 3 · ต้องผลิต) ══════════ -->
-    <div id="reqPane">
+    <div id="reqPane" class="hidden">
       <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิตรวม (ชิ้น)</div>
           <div class="num text-2xl font-extrabold" style="color:#FF671F" id="rKpiQty">0</div></div>
@@ -489,16 +538,49 @@ async function bootWaste(){
   await reloadWaste();
 }
 
-// ── tab switch (4 tabs) ──
+// ── overview (หน้าภาพรวม) ──
+async function loadOverview(){
+  let d;
+  try{ d = await api('/api/kitchen/overview'); }
+  catch(e){ console.error('overview error', e); return; }
+  const k = d.kpi;
+  $('ovReqQty').textContent    = fmt(k.request.total_qty);
+  $('ovReqSub').textContent    = (k.request.date||'—')+' · '+k.request.items+' รายการ';
+  $('ovStockVal').textContent  = '฿'+fmt(k.stock.total_val);
+  $('ovStockSub').textContent  = k.stock.items+' รายการ · dead '+k.stock.dead;
+  $('ovUsageCost').textContent = '฿'+fmt(k.usage.total_cost);
+  $('ovUsageSub').textContent  = (k.usage.date||'—')+' · '+k.usage.items+' รายการ';
+  $('ovWasteQty').textContent  = fmt(k.waste.total_qty,2);
+  $('ovWasteSub').textContent  = (k.waste.date||'—')+' · '+k.waste.items+' รายการ';
+  const dd = s => s ? s.slice(5,10) : '—';
+  const rowHtml = (code,name,valHtml,date)=>`<div class="flex items-center gap-2 text-xs py-0.5">
+      <span class="num font-bold text-gray-700" style="min-width:76px">${code}</span>
+      <span class="text-gray-500 flex-1 truncate">${name||'—'}</span>
+      ${valHtml}
+      <span class="text-[10px] font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded" style="min-width:42px;text-align:center">${dd(date)}</span>
+    </div>`;
+  const fill = (id, rows, valFn) => {
+    const box=$(id);
+    if(!rows || !rows.length){ box.innerHTML='<div class="text-xs text-gray-400 py-2 text-center">— ไม่มีข้อมูล —</div>'; return; }
+    box.innerHTML = rows.map(r=>rowHtml(r.code, r.name, valFn(r), r.date)).join('');
+  };
+  fill('ovReqList',   d.request, r=>`<span class="num font-bold" style="color:#FF671F">${fmt(r.qty)}</span>`);
+  fill('ovStockList', d.stock,   r=>`<span class="num font-bold" style="color:#E91E8C">฿${fmt(r.amt)}</span>`);
+  fill('ovUsageList', d.usage,   r=>`<span class="num font-bold text-blue-600">฿${fmt(r.cost)}</span>`);
+  fill('ovWasteList', d.waste,   r=>`<span class="num font-bold text-red-500">${fmt(r.qty,2)}</span>`);
+}
+
+// ── tab switch (5 tabs) ──
 function setTab(which){
-  const tabs={req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
-  const panes={req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
+  const tabs={overview:$('tabOverview'), req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
+  const panes={overview:$('overviewPane'), req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
   const on ="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white";
   const off="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100";
   for(const k in panes) panes[k].classList.add('hidden');
   for(const k in tabs){ tabs[k].className=off; tabs[k].style.background=''; }
   panes[which].classList.remove('hidden');
   tabs[which].className=on; tabs[which].style.background='#FF671F';
+  if(which==='overview') loadOverview();
   if(which==='req')   bootReq();
   if(which==='usage') bootUsage();
   if(which==='waste') bootWaste();
@@ -507,7 +589,7 @@ async function boot(){
   $('userLabel').textContent = curUser ? (curUser.full_name||curUser.username)+' · '+curUser.role : '';
   await loadKitchens();
   await reloadAll();       // preload stock (tab สต๊อก)
-  setTab('req');           // เปิด tab "ต้องผลิต" เป็นหน้าแรก (GR มาก่อน)
+  setTab('overview');      // เปิดหน้าภาพรวมเป็น default
 }
 
 // ── events ──
@@ -515,12 +597,14 @@ $('lgBtn').onclick = doLogin;
 $('lgPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').onclick = ()=>{ setTok(null); curUser=null; showLogin(); };
 $('refreshBtn').onclick = ()=> {
-  if(!$('reqPane').classList.contains('hidden')) reloadReq();
+  if(!$('overviewPane').classList.contains('hidden')) loadOverview();
+  else if(!$('reqPane').classList.contains('hidden')) reloadReq();
   else if(!$('usagePane').classList.contains('hidden')) reloadUsage();
   else if(!$('wastePane').classList.contains('hidden')) reloadWaste();
   else reloadAll();
 };
 $('kitSel').onchange = ()=> reloadAll();
+$('tabOverview').onclick = ()=> setTab('overview');
 $('tabReq').onclick = ()=> setTab('req');
 $('tabStock').onclick = ()=> setTab('stock');
 $('tabUsage').onclick = ()=> setTab('usage');
