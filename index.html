@@ -333,7 +333,7 @@ async function loadStock(){
   if(!d.rows.length){ $('emptyMsg').classList.remove('hidden'); return; }
   $('emptyMsg').classList.add('hidden');
   const html = d.rows.map(r=>{
-    const move = r.last_move ? r.last_move.slice(0,10) : '—';
+    const move = r.ent_date ? r.ent_date.slice(0,10) : '—';
     const moveCell = r.dead
       ? `<span class="text-red-600 font-bold">⚠️ ${move}</span>`
       : `<span class="text-gray-500">${move}</span>`;
