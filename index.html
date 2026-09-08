@@ -62,48 +62,37 @@
 
     <!-- ══════════ OVERVIEW PANE (หน้าภาพรวม · default) ══════════ -->
     <div id="overviewPane">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิต (ล่าสุด)</div>
+      <div class="rounded-xl p-4 mb-3 flex items-center gap-3" style="background:linear-gradient(100deg,#1b2c60,#2b3f7a)">
+        <div class="flex items-center justify-center text-white text-xl" style="width:36px;height:36px;background:#FF671F;border-radius:9px">🏭</div>
+        <div>
+          <div class="text-white font-bold text-base">สรุปสต๊อกวัตถุดิบครัว · ภาพรวมทุกครัว</div>
+          <div class="text-xs" style="color:#aeb9de" id="ovAsOf">—</div>
+        </div>
+        <div class="ml-auto text-right text-[10px] leading-tight" style="color:#dbe2f5">Kitchen Stock<br>DRF · DGF</div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิตรวม</div>
           <div class="num text-2xl font-extrabold" style="color:#FF671F" id="ovReqQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovReqSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต๊อก</div>
+        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต๊อกรวม</div>
           <div class="num text-2xl font-extrabold" style="color:#E91E8C" id="ovStockVal">฿0</div>
           <div class="text-[11px] text-gray-400" id="ovStockSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้ (ล่าสุด)</div>
+        <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้รวม</div>
           <div class="num text-2xl font-extrabold text-blue-600" id="ovUsageCost">฿0</div>
           <div class="text-[11px] text-gray-400" id="ovUsageSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสีย (ล่าสุด)</div>
+        <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสียรวม</div>
           <div class="num text-2xl font-extrabold text-red-500" id="ovWasteQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div></div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div id="ovKitchens" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
         <div class="card p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span>📋</span><span class="text-sm font-bold text-gray-700">ต้องผลิต — ล่าสุด</span>
-            <button class="ml-auto text-xs font-bold" style="color:#FF671F" onclick="setTab('req')">ดูทั้งหมด →</button>
-          </div>
-          <div id="ovReqList" class="space-y-1"></div>
+          <div class="text-sm font-bold text-gray-700 mb-3">📊 เปรียบเทียบมูลค่าสต๊อกรายครัว</div>
+          <div id="ovBar" class="flex items-end gap-2" style="height:150px"></div>
         </div>
         <div class="card p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span>📦</span><span class="text-sm font-bold text-gray-700">สต๊อก — เคลื่อนไหวล่าสุด</span>
-            <button class="ml-auto text-xs font-bold" style="color:#E91E8C" onclick="setTab('stock')">ดูทั้งหมด →</button>
-          </div>
-          <div id="ovStockList" class="space-y-1"></div>
-        </div>
-        <div class="card p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span>🍩</span><span class="text-sm font-bold text-gray-700">วัตถุดิบใช้ — ล่าสุด</span>
-            <button class="ml-auto text-xs font-bold text-blue-600" onclick="setTab('usage')">ดูทั้งหมด →</button>
-          </div>
-          <div id="ovUsageList" class="space-y-1"></div>
-        </div>
-        <div class="card p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span>🗑️</span><span class="text-sm font-bold text-gray-700">ของเสีย — ล่าสุด</span>
-            <button class="ml-auto text-xs font-bold text-red-500" onclick="setTab('waste')">ดูทั้งหมด →</button>
-          </div>
-          <div id="ovWasteList" class="space-y-1"></div>
+          <div class="text-sm font-bold text-gray-700 mb-2">⚠️ สรุปประเด็น · Dead stock</div>
+          <div id="ovDead"></div>
         </div>
       </div>
     </div>
@@ -538,36 +527,61 @@ async function bootWaste(){
   await reloadWaste();
 }
 
-// ── overview (หน้าภาพรวม) ──
+// ── dashboard อลังการ (หน้าภาพรวม · per-kitchen) ──
+const OV_PALETTE=['#F5871F','#E5308A','#4CAF50','#2AA0DF','#9b59b6','#e67e22','#16a085','#c0392b','#34495e'];
 async function loadOverview(){
   let d;
-  try{ d = await api('/api/kitchen/overview'); }
-  catch(e){ console.error('overview error', e); return; }
-  const k = d.kpi;
-  $('ovReqQty').textContent    = fmt(k.request.total_qty);
-  $('ovReqSub').textContent    = (k.request.date||'—')+' · '+k.request.items+' รายการ';
-  $('ovStockVal').textContent  = '฿'+fmt(k.stock.total_val);
-  $('ovStockSub').textContent  = k.stock.items+' รายการ · dead '+k.stock.dead;
-  $('ovUsageCost').textContent = '฿'+fmt(k.usage.total_cost);
-  $('ovUsageSub').textContent  = (k.usage.date||'—')+' · '+k.usage.items+' รายการ';
-  $('ovWasteQty').textContent  = fmt(k.waste.total_qty,2);
-  $('ovWasteSub').textContent  = (k.waste.date||'—')+' · '+k.waste.items+' รายการ';
-  const dd = s => s ? s.slice(5,10) : '—';
-  const rowHtml = (code,name,valHtml,date)=>`<div class="flex items-center gap-2 text-xs py-0.5">
-      <span class="num font-bold text-gray-700" style="min-width:76px">${code}</span>
-      <span class="text-gray-500 flex-1 truncate">${name||'—'}</span>
-      ${valHtml}
-      <span class="text-[10px] font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded" style="min-width:42px;text-align:center">${dd(date)}</span>
+  try{ d = await api('/api/kitchen/dashboard'); }
+  catch(e){ console.error('dashboard error', e); return; }
+  const t = d.total, kk = d.kitchens||[];
+  $('ovAsOf').textContent      = 'อัปเดต '+(d.as_of||'—')+' · '+t.kitchens+' ครัว';
+  $('ovReqQty').textContent    = fmt(t.req_qty);
+  $('ovReqSub').textContent    = 'ชิ้น · '+t.kitchens+' ครัว';
+  $('ovStockVal').textContent  = '฿'+fmt(t.stock_val);
+  $('ovStockSub').textContent  = t.items+' รายการ';
+  $('ovUsageCost').textContent = '฿'+fmt(t.use_cost);
+  $('ovUsageSub').textContent  = 'สะสม';
+  $('ovWasteQty').textContent  = fmt(t.waste_qty,2);
+  $('ovWasteSub').textContent  = 'สะสม';
+
+  // per-kitchen cards
+  $('ovKitchens').innerHTML = kk.map((k,i)=>{
+    const c=OV_PALETTE[i%OV_PALETTE.length];
+    return `<div class="card overflow-hidden">
+      <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.name}</div>
+      <div class="p-3">
+        <div class="text-[10px] text-gray-400">มูลค่าสต๊อก</div>
+        <div class="num text-lg font-extrabold" style="color:${c}">฿${fmt(k.stock_val)}</div>
+        <div class="flex justify-between text-[11px] mt-1"><span class="text-gray-500">รายการ</span><span class="num font-bold">${k.items}</span></div>
+        <div class="flex justify-between text-[11px]"><span class="text-gray-500">ต้องผลิต</span><span class="num font-bold">${fmt(k.req_qty)}</span></div>
+        <div class="flex justify-between text-[11px]"><span class="${k.dead>0?'text-red-600':'text-gray-400'}">dead stock</span><span class="num font-bold ${k.dead>0?'text-red-600':'text-gray-400'}">${k.dead}</span></div>
+      </div>
     </div>`;
-  const fill = (id, rows, valFn) => {
-    const box=$(id);
-    if(!rows || !rows.length){ box.innerHTML='<div class="text-xs text-gray-400 py-2 text-center">— ไม่มีข้อมูล —</div>'; return; }
-    box.innerHTML = rows.map(r=>rowHtml(r.code, r.name, valFn(r), r.date)).join('');
-  };
-  fill('ovReqList',   d.request, r=>`<span class="num font-bold" style="color:#FF671F">${fmt(r.qty)}</span>`);
-  fill('ovStockList', d.stock,   r=>`<span class="num font-bold" style="color:#E91E8C">฿${fmt(r.amt)}</span>`);
-  fill('ovUsageList', d.usage,   r=>`<span class="num font-bold text-blue-600">฿${fmt(r.cost)}</span>`);
-  fill('ovWasteList', d.waste,   r=>`<span class="num font-bold text-red-500">${fmt(r.qty,2)}</span>`);
+  }).join('') || '<div class="text-sm text-gray-400 py-4 col-span-full text-center">— ยังไม่มีข้อมูลครัว —</div>';
+
+  // bar chart (CSS) — มูลค่าสต๊อกรายครัว
+  const kf = v => v>=1000 ? Math.round(v/1000)+'K' : Math.round(v);
+  const maxV = Math.max(...kk.map(k=>k.stock_val), 1);
+  $('ovBar').innerHTML = kk.map((k,i)=>{
+    const c=OV_PALETTE[i%OV_PALETTE.length];
+    const h=Math.max(4, Math.round(k.stock_val/maxV*100));
+    return `<div class="flex-1 flex flex-col items-center justify-end gap-1" style="height:100%">
+      <span class="text-[10px] num font-bold text-gray-600">${kf(k.stock_val)}</span>
+      <div class="w-full rounded-t" style="background:${c};height:${h}%"></div>
+      <span class="text-[9px] text-gray-500 truncate w-full text-center">${k.name}</span>
+    </div>`;
+  }).join('');
+
+  // dead stock summary
+  const deadK = kk.filter(k=>k.dead>0);
+  $('ovDead').innerHTML =
+    `<div class="rounded-lg px-3 py-2 mb-2" style="background:#fdf0ee">
+       <span class="num text-2xl font-extrabold text-red-600">${t.dead}</span>
+       <span class="text-sm text-red-700"> รายการไม่เคลื่อนไหว &gt;180 วัน</span>
+     </div>` +
+    (deadK.length
+      ? deadK.map(k=>`<div class="flex justify-between text-xs text-gray-600 py-0.5"><span>${k.name}</span><span class="num font-bold">${k.dead} รายการ</span></div>`).join('')
+      : '<div class="text-xs text-gray-400 py-1">ไม่มี dead stock 🎉</div>');
 }
 
 // ── tab switch (5 tabs) ──
