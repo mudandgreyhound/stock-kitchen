@@ -444,6 +444,9 @@ async function loadReqDates(){
   sel.innerHTML = d.dates.length
     ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
     : '<option value="">— ไม่มีข้อมูล —</option>';
+  // default = วันนี้ ถ้ามีในรายการ (ให้ตรงกับหน้าภาพรวม), ไม่งั้น = วันล่าสุด (option แรก)
+  const today = new Date().toLocaleDateString('en-CA');
+  if([...sel.options].some(o=>o.value===today)) sel.value = today;
 }
 async function loadReqKitchens(){
   const d = await api('/api/kitchen/list');
@@ -536,7 +539,7 @@ async function loadOverview(){
   const t = d.total, kk = d.kitchens||[], dz = d.dates||{};
   $('ovAsOf').textContent      = 'อัปเดต '+(d.as_of||'—')+' · '+t.kitchens+' ครัว';
   $('ovReqQty').textContent    = fmt(t.req_qty);
-  $('ovReqSub').textContent    = 'วันล่าสุด '+(dz.request||'—');
+  $('ovReqSub').textContent    = 'วันนี้ '+(dz.request||'—');
   $('ovStockVal').textContent  = '฿'+fmt(t.stock_val);
   $('ovStockSub').textContent  = t.items+' รายการ';
   $('ovUsageCost').textContent = '฿'+fmt(t.use_cost);
