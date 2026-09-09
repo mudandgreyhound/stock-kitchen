@@ -533,16 +533,16 @@ async function loadOverview(){
   let d;
   try{ d = await api('/api/kitchen/dashboard'); }
   catch(e){ console.error('dashboard error', e); return; }
-  const t = d.total, kk = d.kitchens||[];
+  const t = d.total, kk = d.kitchens||[], dz = d.dates||{};
   $('ovAsOf').textContent      = 'อัปเดต '+(d.as_of||'—')+' · '+t.kitchens+' ครัว';
   $('ovReqQty').textContent    = fmt(t.req_qty);
-  $('ovReqSub').textContent    = 'ชิ้น · '+t.kitchens+' ครัว';
+  $('ovReqSub').textContent    = 'วันล่าสุด '+(dz.request||'—');
   $('ovStockVal').textContent  = '฿'+fmt(t.stock_val);
   $('ovStockSub').textContent  = t.items+' รายการ';
   $('ovUsageCost').textContent = '฿'+fmt(t.use_cost);
-  $('ovUsageSub').textContent  = 'สะสม';
+  $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
   $('ovWasteQty').textContent  = fmt(t.waste_qty,2);
-  $('ovWasteSub').textContent  = 'สะสม';
+  $('ovWasteSub').textContent  = 'วันล่าสุด '+(dz.waste||'—');
 
   // per-kitchen cards
   $('ovKitchens').innerHTML = kk.map((k,i)=>{
