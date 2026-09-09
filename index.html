@@ -88,7 +88,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
         <div class="card p-4">
           <div class="text-sm font-bold text-gray-700 mb-3">📊 เปรียบเทียบมูลค่าสต๊อกรายครัว</div>
-          <div id="ovBar" class="flex items-end gap-2" style="height:150px"></div>
+          <div id="ovBar" class="flex items-end gap-1" style="height:150px"></div>
         </div>
         <div class="card p-4">
           <div class="text-sm font-bold text-gray-700 mb-2">⚠️ สรุปประเด็น · Dead stock</div>
@@ -568,10 +568,11 @@ async function loadOverview(){
   $('ovBar').innerHTML = kk.map((k,i)=>{
     const c=OV_PALETTE[i%OV_PALETTE.length];
     const h=Math.max(4, Math.round(k.stock_val/maxV*100));
-    return `<div class="flex-1 flex flex-col items-center justify-end gap-1" style="height:100%">
-      <span class="text-[10px] num font-bold text-gray-600">${kf(k.stock_val)}</span>
+    const short=(k.name||k.code||'').split(' - ')[0].trim();
+    return `<div class="flex-1 min-w-0 flex flex-col items-center justify-end gap-1" style="height:100%">
+      <span class="text-[9px] num font-bold text-gray-600 truncate w-full text-center">${kf(k.stock_val)}</span>
       <div class="w-full rounded-t" style="background:${c};height:${h}%"></div>
-      <span class="text-[9px] text-gray-500 truncate w-full text-center">${k.name}</span>
+      <span class="text-[9px] text-gray-500 truncate w-full text-center" title="${k.name}">${short}</span>
     </div>`;
   }).join('');
 
