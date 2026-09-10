@@ -532,19 +532,37 @@ async function bootWaste(){
 
 // ── dashboard อลังการ (หน้าภาพรวม · per-kitchen) ──
 const OV_PALETTE=['#F5871F','#E5308A','#4CAF50','#2AA0DF','#9b59b6','#e67e22','#16a085','#c0392b','#34495e'];
+// ── component: ตัวเลขไต่จากค่าเดิม→ค่าใหม่ (count-up) ──
+function animateNum(el, to, opts){
+  if(!el) return;
+  opts = opts||{};
+  const dur = opts.dur||800, prefix = opts.prefix||'', dec = opts.decimals||0;
+  to = Number(to)||0;
+  const from = parseFloat(el.dataset.animVal||'0')||0;
+  el.dataset.animVal = to;
+  const f = v => prefix + v.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+  if(from===to){ el.textContent = f(to); return; }
+  const start = performance.now(), ease = p => 1-Math.pow(1-p,3);
+  (function step(now){
+    const p = Math.min(1,(now-start)/dur);
+    el.textContent = f(from + (to-from)*ease(p));
+    if(p<1) requestAnimationFrame(step); else el.textContent = f(to);
+  })(performance.now());
+}
+
 async function loadOverview(){
   let d;
   try{ d = await api('/api/kitchen/dashboard'); }
   catch(e){ console.error('dashboard error', e); return; }
   const t = d.total, kk = d.kitchens||[], dz = d.dates||{};
   $('ovAsOf').textContent      = 'อัปเดต '+(d.as_of||'—')+' · '+t.kitchens+' ครัว';
-  $('ovReqQty').textContent    = fmt(t.req_qty);
+  animateNum($('ovReqQty'),    t.req_qty);
   $('ovReqSub').textContent    = 'วันนี้ '+(dz.request||'—');
-  $('ovStockVal').textContent  = '฿'+fmt(t.stock_val);
+  animateNum($('ovStockVal'),  t.stock_val, {prefix:'฿'});
   $('ovStockSub').textContent  = t.items+' รายการ';
-  $('ovUsageCost').textContent = '฿'+fmt(t.use_cost);
+  animateNum($('ovUsageCost'), t.use_cost, {prefix:'฿'});
   $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
-  $('ovWasteQty').textContent  = fmt(t.waste_qty,2);
+  animateNum($('ovWasteQty'),  t.waste_qty, {decimals:2});
   $('ovWasteSub').textContent  = 'วันล่าสุด '+(dz.waste||'—');
 
   // per-kitchen cards
@@ -554,13 +572,15 @@ async function loadOverview(){
       <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.name}</div>
       <div class="p-3">
         <div class="text-[10px] text-gray-400">มูลค่าสต๊อก</div>
-        <div class="num text-lg font-extrabold" style="color:${c}">฿${fmt(k.stock_val)}</div>
+        <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>
         <div class="flex justify-between text-[11px] mt-1"><span class="text-gray-500">รายการ</span><span class="num font-bold">${k.items}</span></div>
         <div class="flex justify-between text-[11px]"><span class="text-gray-500">ต้องผลิต</span><span class="num font-bold">${fmt(k.req_qty)}</span></div>
         <div class="flex justify-between text-[11px]"><span class="${k.dead>0?'text-red-600':'text-gray-400'}">dead stock</span><span class="num font-bold ${k.dead>0?'text-red-600':'text-gray-400'}">${k.dead}</span></div>
       </div>
     </div>`;
   }).join('') || '<div class="text-sm text-gray-400 py-4 col-span-full text-center">— ยังไม่มีข้อมูลครัว —</div>';
+  $('ovKitchens').querySelectorAll('[data-anim]').forEach(el=>
+    animateNum(el, parseFloat(el.dataset.anim), {prefix:el.dataset.prefix||''}));
 
   // bar chart (CSS) — มูลค่าสต๊อกรายครัว
   const kf = v => v>=1000 ? Math.round(v/1000)+'K' : Math.round(v);
