@@ -54,6 +54,7 @@
     <!-- ── Tabs ── -->
     <div class="flex gap-2 mb-4">
       <button id="tabOverview" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white" style="background:#FF671F">📊 ภาพรวม</button>
+      <button id="tabSuff" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">⚖️ ความพร้อมผลิต</button>
       <button id="tabReq" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📋 ต้องผลิต (GR)</button>
       <button id="tabStock" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📦 สต๊อกคงเหลือ</button>
       <button id="tabUsage" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🍩 วัตถุดิบที่ใช้/วัน</button>
@@ -96,6 +97,85 @@
         </div>
       </div>
     </div>
+
+    <!-- ══════════ SUFFICIENCY PANE (ข้อ 5 · ความพร้อมผลิต) ══════════ -->
+    <div id="suffPane" class="hidden">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div class="card p-4"><div class="text-xs font-bold text-red-700">ครัวขาดวัตถุดิบวันนี้</div>
+          <div class="num text-2xl font-extrabold text-red-600" id="sKpiShort">0</div>
+          <div class="text-[11px] text-gray-400" id="sKpiShortSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">วัตถุดิบวิกฤต (ต่ำกว่า 30%)</div>
+          <div class="num text-2xl font-extrabold text-amber-600" id="sKpiCrit">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-green-700">SKU ที่ยังผลิตเพิ่มได้</div>
+          <div class="num text-2xl font-extrabold text-green-600" id="sKpiProd">0</div>
+          <div class="text-[11px] text-gray-400" id="sKpiProdSub">—</div></div>
+      </div>
+
+      <div class="card p-3 mb-3 flex flex-wrap gap-3 items-center">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">📅 วันผลิต</span>
+          <select id="sDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
+          <select id="sKitSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+            <option value="ALL">ทุกครัว</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[180px]">
+          <input id="sSearchInp" placeholder="🔍 ค้นหา รหัส / ชื่อวัตถุดิบ / สินค้า"
+                 class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+        </div>
+        <div class="text-xs text-gray-400" id="sRowCount"></div>
+      </div>
+
+      <div class="flex gap-1 mb-3">
+        <button id="sViewPct" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white" style="background:#FF671F">% เพียงพอ</button>
+        <button id="sViewQty" class="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 bg-gray-100">จำนวนที่ผลิตได้</button>
+      </div>
+
+      <div id="sPctBox" class="card overflow-hidden">
+        <div class="overflow-x-auto" style="max-height:70vh">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0" style="background:#FFF4EC">
+              <tr class="text-left text-amber-800">
+                <th class="px-3 py-2.5 font-bold">ครัว</th>
+                <th class="px-3 py-2.5 font-bold">รหัส</th>
+                <th class="px-3 py-2.5 font-bold">วัตถุดิบ</th>
+                <th class="px-3 py-2.5 font-bold text-right">ต้องใช้</th>
+                <th class="px-3 py-2.5 font-bold text-right">คงเหลือ</th>
+                <th class="px-3 py-2.5 font-bold text-right">ส่วนต่าง</th>
+                <th class="px-3 py-2.5 font-bold">% พร้อม</th>
+              </tr>
+            </thead>
+            <tbody id="sPctTbody" class="text-gray-700"></tbody>
+          </table>
+        </div>
+        <div id="sPctEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — รัน etl_kitchen_request.py / etl_kitchen_stock.py ก่อน</div>
+      </div>
+
+      <div id="sQtyBox" class="card overflow-hidden hidden">
+        <div class="overflow-x-auto" style="max-height:70vh">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0" style="background:#FFF4EC">
+              <tr class="text-left text-amber-800">
+                <th class="px-3 py-2.5 font-bold">ครัว</th>
+                <th class="px-3 py-2.5 font-bold">รหัส</th>
+                <th class="px-3 py-2.5 font-bold">สินค้า</th>
+                <th class="px-3 py-2.5 font-bold text-right">ผลิตได้ (ชิ้น)</th>
+                <th class="px-3 py-2.5 font-bold">วัตถุดิบคอขวด</th>
+              </tr>
+            </thead>
+            <tbody id="sQtyTbody" class="text-gray-700"></tbody>
+          </table>
+        </div>
+        <div id="sQtyEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล</div>
+      </div>
+
+      <div class="text-[11px] text-gray-400 mt-2 pb-6">
+        % คำนวณจาก stock ÷ ต้องใช้ × 100 (ปัดต่ำสุด 0%) · จำนวนที่ผลิตได้คำนวณแบบผลิตทีละ SKU ทุ่มสต๊อกทั้งหมด ไม่ได้หักสต๊อกที่ SKU อื่นแย่งใช้ร่วมกัน
+      </div>
+    </div><!-- /suffPane -->
 
     <!-- ══════════ REQUEST PANE (ข้อ 3 · ต้องผลิต) ══════════ -->
     <div id="reqPane" class="hidden">
@@ -487,6 +567,103 @@ async function bootReq(){
   await reloadReq();
 }
 
+// ── SUFFICIENCY (ข้อ 5 · ความพร้อมผลิต) ──
+let sSearchTimer=null, sLoaded=false, sView='pct';
+function pctColor(p){
+  if(p>=70) return {bar:'#22c55e', text:'#15803d'};
+  if(p>=30) return {bar:'#f59e0b', text:'#b45309'};
+  return {bar:'#ef4444', text:'#b91c1c'};
+}
+async function loadSuffDates(){
+  const d = await api('/api/kitchen/request/dates');
+  const sel=$('sDateSel');
+  sel.innerHTML = d.dates.length
+    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
+    : '<option value="">— ไม่มีข้อมูล —</option>';
+  const today = new Date().toLocaleDateString('en-CA');
+  if([...sel.options].some(o=>o.value===today)) sel.value = today;
+}
+async function loadSuffKitchens(){
+  const d = await api('/api/kitchen/list');
+  const sel=$('sKitSel'); const cur=sel.value;
+  sel.innerHTML='<option value="ALL">ทุกครัว</option>' + d.kitchens.map(k=>`<option value="${k.code}">${k.code} · ${k.name}</option>`).join('');
+  sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
+}
+async function loadSuffSummary(){
+  const date=$('sDateSel').value, kit=$('sKitSel').value;
+  const d = await api(`/api/kitchen/sufficiency/summary?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}`);
+  $('sKpiShort').textContent = fmt(d.kitchens_short);
+  $('sKpiShortSub').textContent = 'วันที่ '+(d.date||'—');
+  $('sKpiCrit').textContent  = fmt(d.critical_items);
+  $('sKpiProd').textContent  = fmt(d.producible_skus);
+  $('sKpiProdSub').textContent = 'จาก '+fmt(d.total_skus)+' SKU';
+}
+async function loadSuffPctTable(){
+  const date=$('sDateSel').value, kit=$('sKitSel').value, q=$('sSearchInp').value.trim();
+  const d = await api(`/api/kitchen/sufficiency?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`);
+  const tb=$('sPctTbody'); tb.innerHTML='';
+  $('sRowCount').textContent = d.count+' รายการ';
+  if(!d.rows.length){ $('sPctEmptyMsg').classList.remove('hidden'); return; }
+  $('sPctEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>{
+    const c = pctColor(r.pct);
+    return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num">${fmt(r.required,2)}</td>
+      <td class="px-3 py-2 text-right num">${fmt(r.stock,2)}</td>
+      <td class="px-3 py-2 text-right num font-bold" style="color:${r.diff<0?'#b91c1c':'#15803d'}">${fmt(r.diff,2)}</td>
+      <td class="px-3 py-2">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden" style="min-width:60px">
+            <div class="h-full rounded-full" style="width:${Math.max(r.pct,3)}%;background:${c.bar}"></div>
+          </div>
+          <span class="num text-xs font-bold" style="color:${c.text}">${fmt(r.pct,1)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function loadSuffQtyTable(){
+  const kit=$('sKitSel').value, q=$('sSearchInp').value.trim();
+  const d = await api(`/api/kitchen/sufficiency/producible?kitchen=${encodeURIComponent(kit)}&search=${encodeURIComponent(q)}`);
+  const tb=$('sQtyTbody'); tb.innerHTML='';
+  $('sRowCount').textContent = d.count+' รายการ';
+  if(!d.rows.length){ $('sQtyEmptyMsg').classList.remove('hidden'); return; }
+  $('sQtyEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-extrabold" style="color:#FF671F">${fmt(r.qty)}</td>
+      <td class="px-3 py-2 text-gray-500">${r.bottleneck_name||r.bottleneck_code||''}</td>
+    </tr>`).join('');
+}
+function setSuffView(v){
+  sView=v;
+  $('sViewPct').className = v==='pct'
+    ? 'px-3 py-1.5 rounded-lg text-xs font-bold text-white'
+    : 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 bg-gray-100';
+  $('sViewPct').style.background = v==='pct' ? '#FF671F' : '';
+  $('sViewQty').className = v==='qty'
+    ? 'px-3 py-1.5 rounded-lg text-xs font-bold text-white'
+    : 'px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 bg-gray-100';
+  $('sViewQty').style.background = v==='qty' ? '#FF671F' : '';
+  $('sPctBox').classList.toggle('hidden', v!=='pct');
+  $('sQtyBox').classList.toggle('hidden', v!=='qty');
+  $('sDateSel').closest('div').classList.toggle('hidden', v!=='pct');
+  if(v==='pct') loadSuffPctTable(); else loadSuffQtyTable();
+}
+async function reloadSuff(){
+  await loadSuffSummary();
+  if(sView==='pct') await loadSuffPctTable(); else await loadSuffQtyTable();
+}
+async function bootSuff(){
+  if(!sLoaded){ await loadSuffDates(); await loadSuffKitchens(); sLoaded=true; }
+  await reloadSuff();
+}
+
 // ── WASTE (ข้อ 4 · ของเสีย WIP→DRF) ──
 let wSearchTimer=null, wLoaded=false;
 async function loadWasteDates(){
@@ -610,8 +787,8 @@ async function loadOverview(){
 
 // ── tab switch (5 tabs) ──
 function setTab(which){
-  const tabs={overview:$('tabOverview'), req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
-  const panes={overview:$('overviewPane'), req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
+  const tabs={overview:$('tabOverview'), suff:$('tabSuff'), req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
+  const panes={overview:$('overviewPane'), suff:$('suffPane'), req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
   const on ="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white";
   const off="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100";
   for(const k in panes) panes[k].classList.add('hidden');
@@ -619,6 +796,7 @@ function setTab(which){
   panes[which].classList.remove('hidden');
   tabs[which].className=on; tabs[which].style.background='#FF671F';
   if(which==='overview') loadOverview();
+  if(which==='suff')  bootSuff();
   if(which==='req')   bootReq();
   if(which==='usage') bootUsage();
   if(which==='waste') bootWaste();
@@ -636,6 +814,7 @@ $('lgPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 $('logoutBtn').onclick = ()=>{ setTok(null); curUser=null; showLogin(); };
 $('refreshBtn').onclick = ()=> {
   if(!$('overviewPane').classList.contains('hidden')) loadOverview();
+  else if(!$('suffPane').classList.contains('hidden')) reloadSuff();
   else if(!$('reqPane').classList.contains('hidden')) reloadReq();
   else if(!$('usagePane').classList.contains('hidden')) reloadUsage();
   else if(!$('wastePane').classList.contains('hidden')) reloadWaste();
@@ -643,10 +822,19 @@ $('refreshBtn').onclick = ()=> {
 };
 $('kitSel').onchange = ()=> reloadAll();
 $('tabOverview').onclick = ()=> setTab('overview');
+$('tabSuff').onclick = ()=> setTab('suff');
 $('tabReq').onclick = ()=> setTab('req');
 $('tabStock').onclick = ()=> setTab('stock');
 $('tabUsage').onclick = ()=> setTab('usage');
 $('tabWaste').onclick = ()=> setTab('waste');
+$('sDateSel').onchange = ()=> reloadSuff();
+$('sKitSel').onchange = ()=> reloadSuff();
+$('sSearchInp').addEventListener('input', ()=>{
+  clearTimeout(sSearchTimer);
+  sSearchTimer=setTimeout(()=> sView==='pct'?loadSuffPctTable():loadSuffQtyTable(), 300);
+});
+$('sViewPct').onclick = ()=> setSuffView('pct');
+$('sViewQty').onclick = ()=> setSuffView('qty');
 $('rDateSel').onchange = ()=> reloadReq();
 $('rKitSel').onchange = ()=> reloadReq();
 $('rSearchInp').addEventListener('input', ()=>{ clearTimeout(rSearchTimer); rSearchTimer=setTimeout(loadReqTable, 300); });
