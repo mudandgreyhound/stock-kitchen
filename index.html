@@ -358,6 +358,42 @@
         </div>
         <div class="text-xs text-gray-400" id="wRowCount"></div>
       </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="card overflow-hidden">
+          <div class="px-3 py-2.5 text-xs font-bold text-amber-800 border-b border-gray-100" style="background:#FFF4EC">🍩 แยกตาม DGF (WIP ที่เสีย)</div>
+          <div class="overflow-x-auto" style="max-height:45vh">
+            <table class="w-full text-sm">
+              <thead class="sticky top-0 bg-white">
+                <tr class="text-left text-gray-500">
+                  <th class="px-3 py-2 font-bold">รหัส</th>
+                  <th class="px-3 py-2 font-bold">โดนัท</th>
+                  <th class="px-3 py-2 font-bold text-right">จำนวน</th>
+                  <th class="px-3 py-2 font-bold">หน่วย</th>
+                </tr>
+              </thead>
+              <tbody id="wDgfTbody" class="text-gray-700"></tbody>
+            </table>
+          </div>
+          <div id="wDgfEmptyMsg" class="hidden text-center text-gray-400 py-6 text-sm">ไม่มีข้อมูล</div>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="px-3 py-2.5 text-xs font-bold text-amber-800 border-b border-gray-100" style="background:#FFF4EC">🌾 แยกตาม DRF (แป้งที่ผันกลับ)</div>
+          <div class="overflow-x-auto" style="max-height:45vh">
+            <table class="w-full text-sm">
+              <thead class="sticky top-0 bg-white">
+                <tr class="text-left text-gray-500">
+                  <th class="px-3 py-2 font-bold">รหัส</th>
+                  <th class="px-3 py-2 font-bold">วัตถุดิบ</th>
+                  <th class="px-3 py-2 font-bold text-right">จำนวน</th>
+                  <th class="px-3 py-2 font-bold">หน่วย</th>
+                </tr>
+              </thead>
+              <tbody id="wDrfTbody" class="text-gray-700"></tbody>
+            </table>
+          </div>
+          <div id="wDrfEmptyMsg" class="hidden text-center text-gray-400 py-6 text-sm">ไม่มีข้อมูล</div>
+        </div>
+      </div>
       <div class="card overflow-hidden">
         <div class="px-3 py-2 text-xs text-gray-500 border-b border-gray-100" style="background:#fff7f2">
           💡 ของเสียครัวเป็น WIP (โดนัทกึ่งสำเร็จ) — ผันกลับเป็นวัตถุดิบดิบ (DRF) ตามสูตรผลิตจริงของแต่ละครัว
@@ -704,7 +740,33 @@ async function loadWasteTable(){
       <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
     </tr>`).join('');
 }
-async function reloadWaste(){ await Promise.all([loadWasteSummary(), loadWasteTable()]); }
+async function loadWasteByDgf(){
+  const date=$('wDateSel').value, kit=$('wKitSel').value, q=$('wSearchInp').value.trim();
+  const d = await api(`/api/kitchen/waste/dgf?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`);
+  const tb=$('wDgfTbody'); tb.innerHTML='';
+  if(!d.rows.length){ $('wDgfEmptyMsg').classList.remove('hidden'); return; }
+  $('wDgfEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 font-semibold text-amber-700">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-extrabold text-red-600">${fmt(r.qty,0)}</td>
+      <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
+    </tr>`).join('');
+}
+async function loadWasteByDrf(){
+  const date=$('wDateSel').value, kit=$('wKitSel').value, q=$('wSearchInp').value.trim();
+  const d = await api(`/api/kitchen/waste/drf?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`);
+  const tb=$('wDrfTbody'); tb.innerHTML='';
+  if(!d.rows.length){ $('wDrfEmptyMsg').classList.remove('hidden'); return; }
+  $('wDrfEmptyMsg').classList.add('hidden');
+  tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      <td class="px-3 py-2 font-semibold">${r.code}</td>
+      <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
+      <td class="px-3 py-2 text-right num font-extrabold text-red-600">${fmt(r.qty,3)}</td>
+      <td class="px-3 py-2 text-gray-400">${r.unit||''}</td>
+    </tr>`).join('');
+}
+async function reloadWaste(){ await Promise.all([loadWasteSummary(), loadWasteTable(), loadWasteByDgf(), loadWasteByDrf()]); }
 async function bootWaste(){
   if(!wLoaded){ await loadWasteDates(); await loadWasteKitchens(); wLoaded=true; }
   await reloadWaste();
@@ -846,7 +908,7 @@ $('uKitSel').onchange = ()=> reloadUsage();
 $('uSearchInp').addEventListener('input', ()=>{ clearTimeout(uSearchTimer); uSearchTimer=setTimeout(loadUsageTable, 300); });
 $('wDateSel').onchange = ()=> reloadWaste();
 $('wKitSel').onchange = ()=> reloadWaste();
-$('wSearchInp').addEventListener('input', ()=>{ clearTimeout(wSearchTimer); wSearchTimer=setTimeout(loadWasteTable, 300); });
+$('wSearchInp').addEventListener('input', ()=>{ clearTimeout(wSearchTimer); wSearchTimer=setTimeout(()=>{ loadWasteTable(); loadWasteByDgf(); loadWasteByDrf(); }, 300); });
 $('searchInp').addEventListener('input', ()=>{
   clearTimeout(searchTimer); searchTimer=setTimeout(loadStock, 300);
 });
