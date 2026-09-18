@@ -71,7 +71,7 @@
         </div>
         <div class="ml-auto text-right text-[10px] leading-tight" style="color:#dbe2f5">Kitchen Stock<br>DRF · DGF</div>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิตรวม</div>
           <div class="num text-2xl font-extrabold" style="color:#FF671F" id="ovReqQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovReqSub">—</div></div>
@@ -84,6 +84,12 @@
         <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสียรวม</div>
           <div class="num text-2xl font-extrabold text-red-500" id="ovWasteQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-green-700">%yield เฉลี่ย</div>
+          <div class="num text-2xl font-extrabold text-green-600" id="ovYieldPct">—</div>
+          <div class="text-[11px] text-gray-400" id="ovYieldSub">—</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-indigo-700">%vs plan เฉลี่ย</div>
+          <div class="num text-2xl font-extrabold text-indigo-600" id="ovVsPlanPct">—</div>
+          <div class="text-[11px] text-gray-400" id="ovVsPlanSub">—</div></div>
       </div>
       <div id="ovKitchens" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3"></div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
@@ -806,6 +812,10 @@ async function loadOverview(){
   $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
   animateNum($('ovWasteQty'),  t.waste_qty, {decimals:2});
   $('ovWasteSub').textContent  = 'วันล่าสุด '+(dz.waste||'—');
+  $('ovYieldPct').textContent   = t.yield_pct!=null ? fmt(t.yield_pct,1)+'%' : '—';
+  $('ovYieldSub').textContent   = 'วันล่าสุด '+(dz.production||'—');
+  $('ovVsPlanPct').textContent  = t.vs_plan_pct!=null ? fmt(t.vs_plan_pct,1)+'%' : '—';
+  $('ovVsPlanSub').textContent  = 'วันล่าสุด '+(dz.production||'—');
 
   // per-kitchen cards
   $('ovKitchens').innerHTML = kk.map((k,i)=>{
@@ -817,6 +827,8 @@ async function loadOverview(){
         <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>
         <div class="flex justify-between text-[11px] mt-1"><span class="text-gray-500">รายการ</span><span class="num font-bold">${k.items}</span></div>
         <div class="flex justify-between text-[11px]"><span class="text-gray-500">ต้องผลิต</span><span class="num font-bold">${fmt(k.req_qty)}</span></div>
+        <div class="flex justify-between text-[11px]"><span class="text-gray-500">%yield</span><span class="num font-bold ${k.yield_pct!=null&&k.yield_pct<80?'text-red-600':'text-green-600'}">${k.yield_pct!=null?fmt(k.yield_pct,1)+'%':'—'}</span></div>
+        <div class="flex justify-between text-[11px]"><span class="text-gray-500">%vs plan</span><span class="num font-bold ${k.vs_plan_pct!=null&&k.vs_plan_pct<80?'text-red-600':'text-indigo-600'}">${k.vs_plan_pct!=null?fmt(k.vs_plan_pct,1)+'%':'—'}</span></div>
         <div class="flex justify-between text-[11px]"><span class="${k.dead>0?'text-red-600':'text-gray-400'}">dead stock</span><span class="num font-bold ${k.dead>0?'text-red-600':'text-gray-400'}">${k.dead}</span></div>
       </div>
     </div>`;
