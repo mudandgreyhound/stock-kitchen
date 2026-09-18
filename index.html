@@ -363,6 +363,7 @@
             <thead class="sticky top-0" style="background:#FFF4EC">
               <tr class="text-left text-amber-800">
                 <th class="px-3 py-2.5 font-bold">ครัว</th>
+                <th class="px-3 py-2.5 font-bold">รหัส DGF</th>
                 <th class="px-3 py-2.5 font-bold">รหัส DRF</th>
                 <th class="px-3 py-2.5 font-bold">วัตถุดิบ</th>
                 <th class="px-3 py-2.5 font-bold text-right">เสีย (ผันเป็น DRF)</th>
@@ -690,6 +691,7 @@ async function loadWasteTable(){
   $('wEmptyMsg').classList.add('hidden');
   tb.innerHTML = d.rows.map(r=>`<tr class="border-b border-gray-50 hover:bg-orange-50/40">
       <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
+      <td class="px-3 py-2 font-semibold text-amber-700">${r.dgf_code||'<span class=\"text-gray-300\">—</span>'}</td>
       <td class="px-3 py-2 font-semibold">${r.code}</td>
       <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
       <td class="px-3 py-2 text-right num font-extrabold text-red-600">${fmt(r.qty,3)}</td>
