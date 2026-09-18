@@ -329,11 +329,15 @@
 
     <!-- ══════════ WASTE PANE (ข้อ 4 · ของเสีย WIP→DRF) ══════════ -->
     <div id="wastePane" class="hidden">
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">DRF ที่เสีย (รวม)</div>
           <div class="num text-2xl font-extrabold text-red-600" id="wKpiQty">0</div></div>
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">รายการ DRF</div>
           <div class="num text-2xl font-extrabold text-gray-800" id="wKpiItems">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">DGF ที่เสีย (รวม)</div>
+          <div class="num text-2xl font-extrabold text-red-600" id="wKpiDgfQty">0</div></div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">รายการ DGF</div>
+          <div class="num text-2xl font-extrabold text-gray-800" id="wKpiDgfItems">0</div></div>
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">ครัว</div>
           <div class="num text-2xl font-extrabold text-gray-800" id="wKpiKit">0</div></div>
       </div>
@@ -678,9 +682,11 @@ async function loadWasteKitchens(){
 async function loadWasteSummary(){
   const date=$('wDateSel').value, kit=$('wKitSel').value;
   const d = await api(`/api/kitchen/waste/summary?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}`);
-  $('wKpiQty').textContent   = fmt(d.total_qty,2);
-  $('wKpiItems').textContent = fmt(d.items);
-  $('wKpiKit').textContent   = fmt(d.kitchens);
+  $('wKpiQty').textContent     = fmt(d.total_qty,2);
+  $('wKpiItems').textContent   = fmt(d.items);
+  $('wKpiDgfQty').textContent  = fmt(d.total_dgf_qty,2);
+  $('wKpiDgfItems').textContent = fmt(d.dgf_items);
+  $('wKpiKit').textContent    = fmt(d.kitchens);
 }
 async function loadWasteTable(){
   const date=$('wDateSel').value, kit=$('wKitSel').value, q=$('wSearchInp').value.trim();
