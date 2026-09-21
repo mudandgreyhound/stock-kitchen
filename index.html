@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kitchen Stock · Dunkin</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   body{font-family:'Prompt','Nunito',sans-serif;background:#faf7f3}
@@ -69,7 +70,9 @@
           <div class="text-white font-bold text-base">สรุปสต๊อกวัตถุดิบครัว · ภาพรวมทุกครัว</div>
           <div class="text-xs" style="color:#aeb9de" id="ovAsOf">—</div>
         </div>
-        <div class="ml-auto text-right text-[10px] leading-tight" style="color:#dbe2f5">Kitchen Stock<br>DRF · DGF</div>
+        <button id="ovExportBtn" onclick="withExportBtn('ovExportBtn', exportOverview)"
+                class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 shrink-0">📥 Export Excel</button>
+        <div class="text-right text-[10px] leading-tight shrink-0" style="color:#dbe2f5">Kitchen Stock<br>DRF · DGF</div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิตรวม</div>
@@ -133,6 +136,8 @@
                  class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="text-xs text-gray-400" id="sRowCount"></div>
+        <button id="sExportBtn" onclick="withExportBtn('sExportBtn', exportSuff)"
+                class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700">📥 Export Excel</button>
       </div>
 
       <div class="flex gap-1 mb-3">
@@ -209,6 +214,8 @@
                  class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="text-xs text-gray-400" id="rRowCount"></div>
+        <button id="rExportBtn" onclick="withExportBtn('rExportBtn', exportReq)"
+                class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700">📥 Export Excel</button>
       </div>
       <div class="card overflow-hidden">
         <div class="overflow-x-auto" style="max-height:70vh">
@@ -256,6 +263,8 @@
                class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
       </div>
       <div class="text-xs text-gray-400" id="rowCount"></div>
+      <button id="stockExportBtn" onclick="withExportBtn('stockExportBtn', exportStock)"
+              class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700">📥 Export Excel</button>
     </div>
 
     <!-- table -->
@@ -311,6 +320,8 @@
                  class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="text-xs text-gray-400" id="uRowCount"></div>
+        <button id="uExportBtn" onclick="withExportBtn('uExportBtn', exportUsage)"
+                class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700">📥 Export Excel</button>
       </div>
       <!-- table -->
       <div class="card overflow-hidden">
@@ -363,6 +374,8 @@
                  class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="text-xs text-gray-400" id="wRowCount"></div>
+        <button id="wExportBtn" onclick="withExportBtn('wExportBtn', exportWaste)"
+                class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700">📥 Export Excel</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div class="card overflow-hidden">
@@ -778,6 +791,112 @@ async function bootWaste(){
   await reloadWaste();
 }
 
+// ══════════ EXPORT EXCEL (ทุกแท็บ) ══════════
+// ดึงข้อมูลสดจาก API ตาม filter ปัจจุบันของแต่ละแท็บ (ไม่ได้ export เฉพาะที่โชว์บนจอ)
+// แล้วแปลงเป็น .xlsx ฝั่ง browser ด้วย SheetJS — ไม่ผ่าน backend, ไม่ต้องเพิ่ม endpoint
+function todayStr(){ return new Date().toLocaleDateString('en-CA'); }
+
+function exportExcel(filename, sheets){
+  const wb = XLSX.utils.book_new();
+  for(const [name, rows] of Object.entries(sheets)){
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{'หมายเหตุ':'ไม่มีข้อมูล'}]);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31)); // ชื่อ sheet ห้ามเกิน 31 ตัวอักษร
+  }
+  XLSX.writeFile(wb, filename);
+}
+
+async function withExportBtn(btnId, fn){
+  const btn = $(btnId);
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ กำลัง export...';
+  try{ await fn(); }
+  catch(e){ alert('Export ไม่สำเร็จ: '+e.message); }
+  finally{ btn.disabled = false; btn.textContent = orig; }
+}
+
+async function exportOverview(){
+  const d = await api('/api/kitchen/dashboard');
+  const rows = (d.kitchens||[]).map(k=>({
+    'รหัสครัว': k.code, 'ชื่อครัว': k.name,
+    'มูลค่าสต็อก': k.stock_val, 'รายการ': k.items,
+    'ต้องผลิต': k.req_qty, 'วัตถุดิบใช้ (บาท)': k.use_cost, 'ของเสีย (DRF)': k.waste_qty,
+    '%yield': k.yield_pct, '%vs plan': k.vs_plan_pct,
+    'dead stock': k.dead, 'วันที่ production ล่าสุด': k.prod_date,
+    'Day End ล่าสุด': k.dayend_date, 'สถานะ Day End': k.dayend_status,
+    'Day End ห่างกี่วัน': k.dayend_days_behind,
+  }));
+  exportExcel(`kitchen_overview_${todayStr()}.xlsx`, {'ภาพรวมทุกครัว': rows});
+}
+
+async function exportSuff(){
+  const date=$('sDateSel').value, kit=$('sKitSel').value, q=$('sSearchInp').value.trim();
+  const [pctD, qtyD] = await Promise.all([
+    api(`/api/kitchen/sufficiency?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`),
+    api(`/api/kitchen/sufficiency/producible?kitchen=${encodeURIComponent(kit)}&search=${encodeURIComponent(q)}`),
+  ]);
+  const pctRows = (pctD.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส': r.code, 'วัตถุดิบ': r.name, 'หน่วย': r.unit,
+    'ต้องใช้': r.required, 'คงเหลือ': r.stock, 'ส่วนต่าง': r.diff, '% พร้อม': r.pct,
+  }));
+  const qtyRows = (qtyD.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส': r.code, 'สินค้า': r.name,
+    'ผลิตได้ (ชิ้น)': r.qty, 'วัตถุดิบคอขวด': r.bottleneck_name||r.bottleneck_code||'',
+  }));
+  exportExcel(`kitchen_sufficiency_${date||todayStr()}.xlsx`,
+    {'% เพียงพอ': pctRows, 'จำนวนที่ผลิตได้': qtyRows});
+}
+
+async function exportReq(){
+  const date=$('rDateSel').value, kit=$('rKitSel').value, q=$('rSearchInp').value.trim();
+  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}&limit=10000`);
+  const rows = (d.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส': r.code, 'โดนัท': r.name, 'รวมผลิตทั้งหมด (ชิ้น)': Math.round(r.qty),
+  }));
+  exportExcel(`kitchen_gr_${date||todayStr()}.xlsx`, {'ต้องผลิต GR': rows});
+}
+
+async function exportStock(){
+  const kit=$('kitSel').value, q=$('searchInp').value.trim();
+  const d = await api(`/api/kitchen/stock?kitchen=${encodeURIComponent(kit)}&search=${encodeURIComponent(q)}&limit=5000`);
+  const rows = (d.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส': r.code, 'วัตถุดิบ': r.name,
+    'คงเหลือ': r.qty, 'หน่วย': r.unit, 'ต้นทุน/หน่วย': r.cost, 'มูลค่ารวม': r.amt,
+    'เคลื่อนไหวล่าสุด': r.ent_date, 'dead stock': r.dead ? 'ใช่' : '',
+  }));
+  exportExcel(`kitchen_stock_${todayStr()}.xlsx`, {'สต๊อกคงเหลือ': rows});
+}
+
+async function exportUsage(){
+  const date=$('uDateSel').value, kit=$('uKitSel').value, q=$('uSearchInp').value.trim();
+  const d = await api(`/api/kitchen/usage?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}&limit=5000`);
+  const rows = (d.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส': r.code, 'วัตถุดิบ': r.name,
+    'ปริมาณที่ใช้': r.qty, 'หน่วย': r.unit, 'มูลค่า': r.cost,
+  }));
+  exportExcel(`kitchen_usage_${date||todayStr()}.xlsx`, {'วัตถุดิบที่ใช้': rows});
+}
+
+async function exportWaste(){
+  const date=$('wDateSel').value, kit=$('wKitSel').value, q=$('wSearchInp').value.trim();
+  const [detD, dgfD, drfD] = await Promise.all([
+    api(`/api/kitchen/waste?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}&limit=10000`),
+    api(`/api/kitchen/waste/dgf?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`),
+    api(`/api/kitchen/waste/drf?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&search=${encodeURIComponent(q)}`),
+  ]);
+  const detRows = (detD.rows||[]).map(r=>({
+    'ครัว': r.kitchen, 'รหัส DGF': r.dgf_code, 'รหัส DRF': r.code, 'วัตถุดิบ': r.name,
+    'เสีย (ผันเป็น DRF)': r.qty, 'หน่วย': r.unit,
+  }));
+  const dgfRows = (dgfD.rows||[]).map(r=>({
+    'รหัส DGF': r.code, 'โดนัท': r.name, 'จำนวน': r.qty, 'หน่วย': r.unit,
+  }));
+  const drfRows = (drfD.rows||[]).map(r=>({
+    'รหัส DRF': r.code, 'วัตถุดิบ': r.name, 'จำนวน': r.qty, 'หน่วย': r.unit,
+  }));
+  exportExcel(`kitchen_waste_${date||todayStr()}.xlsx`,
+    {'รายละเอียด': detRows, 'แยกตาม DGF': dgfRows, 'แยกตาม DRF': drfRows});
+}
+
 // ── dashboard อลังการ (หน้าภาพรวม · per-kitchen) ──
 const OV_PALETTE=['#F5871F','#E5308A','#4CAF50','#2AA0DF','#9b59b6','#e67e22','#16a085','#c0392b','#34495e'];
 // ── component: ตัวเลขไต่จากค่าเดิม→ค่าใหม่ (count-up) ──
@@ -820,6 +939,10 @@ async function loadOverview(){
   // per-kitchen cards
   $('ovKitchens').innerHTML = kk.map((k,i)=>{
     const c=OV_PALETTE[i%OV_PALETTE.length];
+    const deColor = k.dayend_status==='OK' ? 'text-green-600'
+      : k.dayend_status==='LATE1' ? 'text-amber-600'
+      : k.dayend_status==='LATE_LONG' ? 'text-red-600'
+      : 'text-gray-400';
     return `<div class="card overflow-hidden">
       <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.name}</div>
       <div class="p-3">
@@ -829,7 +952,7 @@ async function loadOverview(){
         <div class="flex justify-between text-[11px]"><span class="text-gray-500">ต้องผลิต</span><span class="num font-bold">${fmt(k.req_qty)}</span></div>
         <div class="flex justify-between text-[11px]"><span class="text-gray-500">%yield</span><span class="num font-bold ${k.yield_pct!=null&&k.yield_pct<80?'text-red-600':'text-green-600'}">${k.yield_pct!=null?fmt(k.yield_pct,1)+'%':'—'}</span></div>
         <div class="flex justify-between text-[11px]"><span class="text-gray-500">%vs plan</span><span class="num font-bold ${k.vs_plan_pct!=null&&k.vs_plan_pct<80?'text-red-600':'text-indigo-600'}">${k.vs_plan_pct!=null?fmt(k.vs_plan_pct,1)+'%':'—'}</span></div>
-        <div class="flex justify-between text-[11px]"><span class="${k.dead>0?'text-red-600':'text-gray-400'}">dead stock</span><span class="num font-bold ${k.dead>0?'text-red-600':'text-gray-400'}">${k.dead}</span></div>
+        <div class="flex justify-between text-[11px]"><span class="text-gray-500">Day End</span><span class="num font-bold ${deColor}">${k.dayend_date||'—'}</span></div>
       </div>
     </div>`;
   }).join('') || '<div class="text-sm text-gray-400 py-4 col-span-full text-center">— ยังไม่มีข้อมูลครัว —</div>';
