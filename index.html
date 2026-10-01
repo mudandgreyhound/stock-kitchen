@@ -75,10 +75,10 @@
         <div class="text-right text-[10px] leading-tight shrink-0" style="color:#dbe2f5">Kitchen Stock<br>DRF · DGF</div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
-        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ต้องผลิตรวม</div>
+        <div class="card p-4"><div class="text-xs font-bold text-amber-700">ยอดต้องผลิตโดนัทรวม (ชิ้น)</div>
           <div class="num text-2xl font-extrabold" style="color:#FF671F" id="ovReqQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovReqSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต๊อกรวม</div>
+        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต็อกคงเหลือรวม</div>
           <div class="num text-2xl font-extrabold" style="color:#E91E8C" id="ovStockVal">฿0</div>
           <div class="text-[11px] text-gray-400" id="ovStockSub">—</div></div>
         <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้รวม</div>
@@ -87,10 +87,10 @@
         <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสียรวม</div>
           <div class="num text-2xl font-extrabold text-red-500" id="ovWasteQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold text-green-700">%yield เฉลี่ย</div>
+        <div class="card p-4" title="100% = ใช้แป้งเท่าสูตรมาตรฐาน · ต่ำกว่า 100% = ใช้วัตถุดิบเกินสูตร"><div class="text-xs font-bold text-green-700">ใช้วัตถุดิบเทียบสูตร (เฉลี่ย)</div>
           <div class="num text-2xl font-extrabold text-green-600" id="ovYieldPct">—</div>
           <div class="text-[11px] text-gray-400" id="ovYieldSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold text-indigo-700">%vs plan เฉลี่ย</div>
+        <div class="card p-4" title="ผลิตจริง ÷ ยอดที่สั่งผลิต"><div class="text-xs font-bold text-indigo-700">ผลิตได้ตามแผน (เฉลี่ย)</div>
           <div class="num text-2xl font-extrabold text-indigo-600" id="ovVsPlanPct">—</div>
           <div class="text-[11px] text-gray-400" id="ovVsPlanSub">—</div></div>
       </div>
@@ -946,13 +946,13 @@ async function loadOverview(){
     return `<div class="card overflow-hidden">
       <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.name}</div>
       <div class="p-3">
-        <div class="text-[10px] text-gray-400">มูลค่าสต๊อก</div>
+        <div class="text-[10px] text-gray-400">มูลค่าสต็อกคงเหลือ</div>
         <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>
-        <div class="flex justify-between text-[11px] mt-1"><span class="text-gray-500">รายการ</span><span class="num font-bold">${k.items}</span></div>
-        <div class="flex justify-between text-[11px]"><span class="text-gray-500">ต้องผลิต</span><span class="num font-bold">${fmt(k.req_qty)}</span></div>
-        <div class="flex justify-between text-[11px]"><span class="text-gray-500">%yield</span><span class="num font-bold ${k.yield_pct!=null&&k.yield_pct<80?'text-red-600':'text-green-600'}">${k.yield_pct!=null?fmt(k.yield_pct,1)+'%':'—'}</span></div>
-        <div class="flex justify-between text-[11px]"><span class="text-gray-500">%vs plan</span><span class="num font-bold ${k.vs_plan_pct!=null&&k.vs_plan_pct<80?'text-red-600':'text-indigo-600'}">${k.vs_plan_pct!=null?fmt(k.vs_plan_pct,1)+'%':'—'}</span></div>
-        <div class="flex justify-between text-[11px]"><span class="text-gray-500">Day End</span><span class="num font-bold ${deColor}">${k.dayend_date||'—'}</span></div>
+        <div class="flex justify-between text-[11px] mt-1 gap-2"><span class="text-gray-500">จำนวนวัตถุดิบในสต็อก</span><span class="num font-bold whitespace-nowrap">${k.items}</span></div>
+        <div class="flex justify-between text-[11px] gap-2"><span class="text-gray-500">ยอดต้องผลิตโดนัท (ชิ้น)</span><span class="num font-bold whitespace-nowrap">${fmt(k.req_qty)}</span></div>
+        <div class="flex justify-between text-[11px] gap-2" title="100% = ใช้แป้งเท่าสูตรมาตรฐาน · ต่ำกว่า 100% = ใช้วัตถุดิบเกินสูตร"><span class="text-gray-500">ใช้วัตถุดิบเทียบสูตร</span><span class="num font-bold whitespace-nowrap ${k.yield_pct!=null&&k.yield_pct<80?'text-red-600':'text-green-600'}">${k.yield_pct!=null?fmt(k.yield_pct,1)+'%':'—'}</span></div>
+        <div class="flex justify-between text-[11px] gap-2" title="ผลิตจริง ÷ ยอดที่สั่งผลิต"><span class="text-gray-500">ผลิตได้ตามแผน</span><span class="num font-bold whitespace-nowrap ${k.vs_plan_pct!=null&&k.vs_plan_pct<80?'text-red-600':'text-indigo-600'}">${k.vs_plan_pct!=null?fmt(k.vs_plan_pct,1)+'%':'—'}</span></div>
+        <div class="flex justify-between text-[11px] gap-2"><span class="text-gray-500">ปิดวันล่าสุด</span><span class="num font-bold whitespace-nowrap ${deColor}">${k.dayend_date||'—'}</span></div>
       </div>
     </div>`;
   }).join('') || '<div class="text-sm text-gray-400 py-4 col-span-full text-center">— ยังไม่มีข้อมูลครัว —</div>';
