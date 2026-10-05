@@ -944,7 +944,7 @@ async function loadOverview(){
       : k.dayend_status==='LATE_LONG' ? 'text-red-600'
       : 'text-gray-400';
     return `<div class="card overflow-hidden">
-      <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.name}</div>
+      <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.code} · ${k.name}</div>
       <div class="p-3">
         <div class="text-[10px] text-gray-400">มูลค่าสต็อกคงเหลือ</div>
         <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>
