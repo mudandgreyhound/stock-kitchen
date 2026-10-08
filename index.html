@@ -12,6 +12,22 @@
   .num{font-family:'Nunito',sans-serif}
   .card{background:#fff;border:1px solid #f0ece6;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
   ::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:#e5ded5;border-radius:8px}
+  /* ── tooltip รายละเอียดของเสีย (hover บนการ์ด "ของเสียรวม") ── */
+  .ov-waste-card{position:relative;cursor:help}
+  .ov-tip{
+    position:absolute; top:calc(100% + 8px); right:0; left:auto; z-index:30;
+    min-width:240px; max-width:300px; text-align:left;
+    background:#fff; border:1px solid #f0ded5; border-radius:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,.12);
+    padding:12px 14px; opacity:0; visibility:hidden; transform:translateY(-4px);
+    transition:opacity .15s ease, transform .15s ease; pointer-events:none;
+  }
+  .ov-waste-card:hover .ov-tip{opacity:1;visibility:visible;transform:translateY(0)}
+  .ov-tip::before{
+    content:''; position:absolute; top:-6px; right:20px; width:12px; height:12px;
+    background:#fff; border-left:1px solid #f0ded5; border-top:1px solid #f0ded5;
+    transform:rotate(45deg);
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -84,9 +100,12 @@
         <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้รวม</div>
           <div class="num text-2xl font-extrabold text-blue-600" id="ovUsageCost">฿0</div>
           <div class="text-[11px] text-gray-400" id="ovUsageSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold text-red-700">ของเสียรวม</div>
+        <div class="card p-4 ov-waste-card" id="ovWasteCard"><div class="text-xs font-bold text-red-700">ของเสียรวม <span class="text-gray-300 font-normal">ⓘ</span></div>
           <div class="num text-2xl font-extrabold text-red-500" id="ovWasteQty">0</div>
-          <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div></div>
+          <div class="text-[11px] text-gray-400" id="ovWasteSub">—</div>
+          <div id="ovWasteTip" class="ov-tip">
+            <div class="text-[11px] text-gray-400">เอาเมาส์ชี้เพื่อดูรายละเอียด…</div>
+          </div></div>
         <div class="card p-4" title="100% = ใช้แป้งเท่าสูตรมาตรฐาน · ต่ำกว่า 100% = ใช้วัตถุดิบเกินสูตร"><div class="text-xs font-bold text-green-700">ใช้วัตถุดิบเทียบสูตร (เฉลี่ย)</div>
           <div class="num text-2xl font-extrabold text-green-600" id="ovYieldPct">—</div>
           <div class="text-[11px] text-gray-400" id="ovYieldSub">—</div></div>
@@ -791,6 +810,44 @@ async function bootWaste(){
   await reloadWaste();
 }
 
+// ── tooltip รายละเอียดของเสีย (hover การ์ด "ของเสียรวม" บนหน้าภาพรวม) ──
+//   ดึงสรุป DRF/DGF ที่เสีย จาก /api/kitchen/waste/summary ตามวันล่าสุดที่หน้าภาพรวมใช้
+//   ยิงครั้งเดียวต่อวัน (cache) — hover ครั้งต่อไปไม่ยิงซ้ำ
+let _wasteTipDate=null;
+async function loadWasteTip(wasteDate){
+  const tip = $('ovWasteTip');
+  if(!tip) return;
+  if(_wasteTipDate===wasteDate) return;           // โหลดวันนี้ไว้แล้ว ไม่ต้องยิงซ้ำ
+  _wasteTipDate = wasteDate;
+  try{
+    const w = await api(`/api/kitchen/waste/summary?kitchen=ALL&date=${encodeURIComponent(wasteDate||'')}`);
+    tip.innerHTML = `
+      <div class="text-xs font-bold text-gray-700 mb-2">🗑️ สรุปของเสีย · ${wasteDate||'—'}</div>
+      <div class="flex items-center justify-between gap-3 py-1 border-b border-gray-50">
+        <span class="text-[12px] text-gray-500">🍩 DGF ที่เสีย (WIP)</span>
+        <span class="num text-sm font-extrabold text-red-600">${fmt(w.total_dgf_qty,2)}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 py-0.5 text-[11px] text-gray-400">
+        <span>รายการ DGF</span><span class="num font-bold">${fmt(w.dgf_items)}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 py-1 mt-1 border-b border-gray-50">
+        <span class="text-[12px] text-gray-500">🌾 DRF ที่ผันกลับ</span>
+        <span class="num text-sm font-extrabold text-red-600">${fmt(w.total_qty,2)}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 py-0.5 text-[11px] text-gray-400">
+        <span>รายการ DRF</span><span class="num font-bold">${fmt(w.items)}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 pt-2 mt-1">
+        <span class="text-[11px] text-gray-400">ครัวที่มีของเสีย</span>
+        <span class="num text-xs font-bold text-gray-600">${fmt(w.kitchens)} ครัว</span>
+      </div>
+      <div class="text-[10px] text-gray-300 mt-2">ดูรายละเอียดเต็มที่แท็บ 🗑️ ของเสีย (WIP→DRF)</div>`;
+  }catch(e){
+    _wasteTipDate = null;                           // โหลดพลาด — ให้ลองใหม่รอบหน้า
+    tip.innerHTML = '<div class="text-[11px] text-gray-400">โหลดรายละเอียดไม่สำเร็จ</div>';
+  }
+}
+
 // ══════════ EXPORT EXCEL (ทุกแท็บ) ══════════
 // ดึงข้อมูลสดจาก API ตาม filter ปัจจุบันของแต่ละแท็บ (ไม่ได้ export เฉพาะที่โชว์บนจอ)
 // แล้วแปลงเป็น .xlsx ฝั่ง browser ด้วย SheetJS — ไม่ผ่าน backend, ไม่ต้องเพิ่ม endpoint
@@ -931,6 +988,7 @@ async function loadOverview(){
   $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
   animateNum($('ovWasteQty'),  t.waste_qty, {decimals:2});
   $('ovWasteSub').textContent  = 'วันล่าสุด '+(dz.waste||'—');
+  loadWasteTip(dz.waste);      // เติมรายละเอียดใน tooltip (ไม่ await — ไม่บล็อกการวาดหน้า)
   $('ovYieldPct').textContent   = t.yield_pct!=null ? fmt(t.yield_pct,1)+'%' : '—';
   $('ovYieldSub').textContent   = 'วันล่าสุด '+(dz.production||'—');
   $('ovVsPlanPct').textContent  = t.vs_plan_pct!=null ? fmt(t.vs_plan_pct,1)+'%' : '—';
