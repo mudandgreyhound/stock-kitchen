@@ -813,7 +813,7 @@ async function bootWaste(){
 // ── tooltip รายละเอียดของเสีย (hover การ์ด "ของเสียรวม" บนหน้าภาพรวม) ──
 //   ดึงสรุป DRF/DGF ที่เสีย จาก /api/kitchen/waste/summary ตามวันล่าสุดที่หน้าภาพรวมใช้
 //   ยิงครั้งเดียวต่อวัน (cache) — hover ครั้งต่อไปไม่ยิงซ้ำ
-let _wasteTipDate=null;
+let _wasteTipDate=null, _ovHasWasteCost=false;
 async function loadWasteTip(wasteDate){
   const tip = $('ovWasteTip');
   if(!tip) return;
@@ -821,8 +821,16 @@ async function loadWasteTip(wasteDate){
   _wasteTipDate = wasteDate;
   try{
     const w = await api(`/api/kitchen/waste/summary?kitchen=ALL&date=${encodeURIComponent(wasteDate||'')}`);
+    // ถ้าการ์ดหลักยังไม่ได้เงินจาก /dashboard ให้เติมจาก /waste/summary ตรงนี้
+    if(!_ovHasWasteCost && w.waste_cost!=null) animateNum($('ovWasteQty'), w.waste_cost, {prefix:'฿'});
+    const costLine = (w.waste_cost!=null)
+      ? `<div class="flex items-center justify-between gap-3 pb-2 mb-1 border-b border-gray-100">
+           <span class="text-[12px] font-bold text-gray-600">💰 มูลค่าของเสียรวม</span>
+           <span class="num text-sm font-extrabold text-red-600">฿${fmt(w.waste_cost)}</span>
+         </div>` : '';
     tip.innerHTML = `
       <div class="text-xs font-bold text-gray-700 mb-2">🗑️ สรุปของเสีย · ${wasteDate||'—'}</div>
+      ${costLine}
       <div class="flex items-center justify-between gap-3 py-1 border-b border-gray-50">
         <span class="text-[12px] text-gray-500">🍩 DGF ที่เสีย (WIP)</span>
         <span class="num text-sm font-extrabold text-red-600">${fmt(w.total_dgf_qty,2)}</span>
@@ -986,9 +994,12 @@ async function loadOverview(){
   $('ovStockSub').textContent  = t.items+' รายการ';
   animateNum($('ovUsageCost'), t.use_cost, {prefix:'฿'});
   $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
-  animateNum($('ovWasteQty'),  t.waste_qty, {decimals:2});
-  $('ovWasteSub').textContent  = 'วันล่าสุด '+(dz.waste||'—');
-  loadWasteTip(dz.waste);      // เติมรายละเอียดใน tooltip (ไม่ await — ไม่บล็อกการวาดหน้า)
+  // ── ของเสีย: โชว์เป็นเงิน ฿ เหมือน "วัตถุดิบใช้รวม" ──
+  //   ใช้ waste_cost ถ้า /dashboard ส่งมา; ถ้าไม่มี loadWasteTip จะเติมจาก /waste/summary ให้เอง
+  _ovHasWasteCost = (t.waste_cost!=null);
+  if(_ovHasWasteCost) animateNum($('ovWasteQty'), t.waste_cost, {prefix:'฿'});
+  $('ovWasteSub').textContent  = 'DRF '+fmt(t.waste_qty,2)+' · วันล่าสุด '+(dz.waste||'—');
+  loadWasteTip(dz.waste);      // เติมรายละเอียด + เงิน (ถ้า dashboard ไม่มี) — ไม่ await
   $('ovYieldPct').textContent   = t.yield_pct!=null ? fmt(t.yield_pct,1)+'%' : '—';
   $('ovYieldSub').textContent   = 'วันล่าสุด '+(dz.production||'—');
   $('ovVsPlanPct').textContent  = t.vs_plan_pct!=null ? fmt(t.vs_plan_pct,1)+'%' : '—';
