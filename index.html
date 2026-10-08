@@ -76,7 +76,6 @@
       <button id="tabStock" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">📦 สต๊อกคงเหลือ</button>
       <button id="tabUsage" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🍩 วัตถุดิบที่ใช้/วัน</button>
       <button id="tabWaste" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🗑️ ของเสีย (WIP→DRF)</button>
-      <button id="tabEtl" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100">🩺 สถานะ ETL</button>
     </div>
 
     <!-- ══════════ OVERVIEW PANE (หน้าภาพรวม · default) ══════════ -->
@@ -462,37 +461,6 @@
         <div id="wEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — รัน etl_kitchen_waste.py ก่อน</div>
       </div>
     </div><!-- /wastePane -->
-
-    <!-- ══════════ ETL HEALTH PANE (สถานะงานดึงข้อมูล) ══════════ -->
-    <div id="etlPane" class="hidden">
-      <div class="card p-3 mb-4 flex items-center gap-3">
-        <div id="etlOverall" class="num text-sm font-extrabold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-500">—</div>
-        <div class="text-xs text-gray-400" id="etlAsOf">—</div>
-        <button id="etlRefresh" class="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white" style="background:#FF671F">🔄 เช็กใหม่</button>
-      </div>
-      <div class="card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="sticky top-0" style="background:#FFF4EC">
-              <tr class="text-left text-amber-800">
-                <th class="px-3 py-2.5 font-bold">สถานะ</th>
-                <th class="px-3 py-2.5 font-bold">งาน ETL</th>
-                <th class="px-3 py-2.5 font-bold">รันล่าสุด</th>
-                <th class="px-3 py-2.5 font-bold text-right">ใช้เวลา</th>
-                <th class="px-3 py-2.5 font-bold">ข้อมูลล่าสุด</th>
-                <th class="px-3 py-2.5 font-bold text-right">แถวในตาราง</th>
-                <th class="px-3 py-2.5 font-bold">หมายเหตุ</th>
-              </tr>
-            </thead>
-            <tbody id="etlTbody" class="text-gray-700"></tbody>
-          </table>
-        </div>
-        <div id="etlEmptyMsg" class="hidden text-center text-gray-400 py-10">ยังไม่มีข้อมูล — ติดตั้ง systemd timers + ตาราง etl_run_log ก่อน</div>
-      </div>
-      <div class="text-[11px] text-gray-400 mt-2 pb-6">
-        🟢 ปกติ · 🟡 เตือน (ข้อมูลค้าง/ไม่รันตามเวลา) · 🔴 ล้มเหลว/ไม่เคยรัน — ประเมินจากประวัติใน etl_run_log + วันข้อมูลล่าสุดของแต่ละตาราง
-      </div>
-    </div><!-- /etlPane -->
   </main>
 </div>
 
@@ -1109,44 +1077,10 @@ async function loadOverview(dateArg){
       : '<div class="text-xs text-gray-400 py-1">ไม่มี dead stock 🎉</div>');
 }
 
-// ── ETL HEALTH (สถานะงานดึงข้อมูล) ──
-async function loadEtlHealth(){
-  let d;
-  try{ d = await api('/api/etl/health'); }
-  catch(e){
-    $('etlTbody').innerHTML='';
-    $('etlEmptyMsg').classList.remove('hidden');
-    $('etlEmptyMsg').textContent = e.message || 'โหลดไม่สำเร็จ';
-    return;
-  }
-  $('etlEmptyMsg').classList.add('hidden');
-  const badge = { ok:['🟢','ปกติ','#dcfce7','#15803d'], warn:['🟡','เตือน','#fef9c3','#b45309'],
-                  fail:['🔴','มีปัญหา','#fee2e2','#b91c1c'] };
-  const hb = { ok:['🟢','#15803d'], running:['🔵','#1d4ed8'], stale:['🟡','#b45309'],
-               lag:['🟡','#b45309'], fail:['🔴','#b91c1c'], never:['🔴','#b91c1c'] };
-  const ov = badge[d.overall]||badge.warn, ovEl=$('etlOverall');
-  ovEl.textContent = ov[0]+' รวม: '+ov[1];
-  ovEl.style.background=ov[2]; ovEl.style.color=ov[3];
-  $('etlAsOf').textContent = 'อัปเดต '+(d.as_of||'—');
-  const fmtDur = s => s==null?'—':(s>=60?Math.floor(s/60)+'m '+(s%60)+'s':s+'s');
-  $('etlTbody').innerHTML = (d.etls||[]).map(e=>{
-    const h = hb[e.health]||['⚪','#6b7280'];
-    return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
-      <td class="px-3 py-2 text-center"><span title="${e.reason||e.health}">${h[0]}</span></td>
-      <td class="px-3 py-2 font-semibold">${e.label}<span class="text-gray-300 text-xs"> · ${e.name}</span></td>
-      <td class="px-3 py-2 text-gray-600 num">${e.started_at||'—'}</td>
-      <td class="px-3 py-2 text-right num text-gray-500">${fmtDur(e.duration_sec)}</td>
-      <td class="px-3 py-2 num">${e.latest_data||'—'}</td>
-      <td class="px-3 py-2 text-right num text-gray-500">${e.rows_table!=null?Number(e.rows_table).toLocaleString('en-US'):'—'}</td>
-      <td class="px-3 py-2 text-xs" style="color:${h[1]}">${e.reason||''}</td>
-    </tr>`;
-  }).join('');
-}
-
-// ── tab switch ──
+// ── tab switch (5 tabs) ──
 function setTab(which){
-  const tabs={overview:$('tabOverview'), suff:$('tabSuff'), req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste'), etl:$('tabEtl')};
-  const panes={overview:$('overviewPane'), suff:$('suffPane'), req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane'), etl:$('etlPane')};
+  const tabs={overview:$('tabOverview'), suff:$('tabSuff'), req:$('tabReq'), stock:$('tabStock'), usage:$('tabUsage'), waste:$('tabWaste')};
+  const panes={overview:$('overviewPane'), suff:$('suffPane'), req:$('reqPane'), stock:$('stockPane'), usage:$('usagePane'), waste:$('wastePane')};
   const on ="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-white";
   const off="tab-btn px-4 py-2 rounded-lg text-sm font-bold text-gray-600 bg-gray-100";
   for(const k in panes) panes[k].classList.add('hidden');
@@ -1158,7 +1092,6 @@ function setTab(which){
   if(which==='req')   bootReq();
   if(which==='usage') bootUsage();
   if(which==='waste') bootWaste();
-  if(which==='etl')   loadEtlHealth();
 }
 async function boot(){
   $('userLabel').textContent = curUser ? (curUser.full_name||curUser.username)+' · '+curUser.role : '';
@@ -1177,7 +1110,6 @@ $('refreshBtn').onclick = ()=> {
   else if(!$('reqPane').classList.contains('hidden')) reloadReq();
   else if(!$('usagePane').classList.contains('hidden')) reloadUsage();
   else if(!$('wastePane').classList.contains('hidden')) reloadWaste();
-  else if(!$('etlPane').classList.contains('hidden')) loadEtlHealth();
   else reloadAll();
 };
 $('kitSel').onchange = ()=> reloadAll();
@@ -1189,8 +1121,6 @@ $('tabReq').onclick = ()=> setTab('req');
 $('tabStock').onclick = ()=> setTab('stock');
 $('tabUsage').onclick = ()=> setTab('usage');
 $('tabWaste').onclick = ()=> setTab('waste');
-$('tabEtl').onclick = ()=> setTab('etl');
-$('etlRefresh').onclick = ()=> loadEtlHealth();
 $('sDateSel').onchange = ()=> reloadSuff();
 $('sKitSel').onchange = ()=> reloadSuff();
 $('sSearchInp').addEventListener('input', ()=>{
