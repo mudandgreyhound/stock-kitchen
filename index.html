@@ -88,9 +88,10 @@
         </div>
         <div class="ml-auto flex items-center gap-2 shrink-0">
           <span class="text-[11px] font-bold" style="color:#dbe2f5">📅 วันที่</span>
-          <select id="ovDateSel" class="px-2 py-1 rounded-lg text-xs font-bold text-gray-700 bg-white outline-none cursor-pointer">
-            <option value="">ล่าสุด</option>
-          </select>
+          <input type="date" id="ovDateSel" title="เว้นว่าง = ล่าสุด"
+                 class="px-2 py-1 rounded-lg text-xs font-bold text-gray-700 bg-white outline-none cursor-pointer">
+          <button id="ovDateClear" title="กลับไปล่าสุด"
+                  class="px-2 py-1 rounded-lg text-xs font-bold text-gray-600 bg-white/90 hover:bg-white">↺</button>
         </div>
         <button id="ovExportBtn" onclick="withExportBtn('ovExportBtn', exportOverview)"
                 class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-green-600 hover:bg-green-700 shrink-0">📥 Export Excel</button>
@@ -148,7 +149,7 @@
       <div class="card p-3 mb-3 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">📅 วันผลิต</span>
-          <select id="sDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+          <input type="date" id="sDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
@@ -226,7 +227,7 @@
       <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">📅 วันผลิต</span>
-          <select id="rDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+          <input type="date" id="rDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
@@ -332,7 +333,7 @@
       <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">📅 วันที่</span>
-          <select id="uDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+          <input type="date" id="uDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
@@ -386,7 +387,7 @@
       <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">📅 วันที่</span>
-          <select id="wDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400"></select>
+          <input type="date" id="wDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
@@ -478,6 +479,22 @@ const fmt = (n,d=0)=> (Number(n)||0).toLocaleString('en-US',{minimumFractionDigi
 const $ = (id)=>document.getElementById(id);
 let searchTimer=null, curUser=null;
 
+// ── ตั้งค่าปฏิทิน (input type=date): กำหนดช่วง min/max + ค่าเริ่มต้น ──
+//   dates = รายวันที่มีข้อมูล เรียงใหม่→เก่า (DESC). preferToday=true → default วันนี้ถ้ามี
+function setDateInput(id, dates, preferToday){
+  const el=$(id); if(!el) return;
+  dates = dates||[];
+  if(!dates.length){ el.value=''; el.removeAttribute('min'); el.removeAttribute('max'); return; }
+  el.max=dates[0]; el.min=dates[dates.length-1];
+  let def=dates[0];                       // ล่าสุด
+  if(preferToday){
+    const today=new Date().toLocaleDateString('en-CA');
+    if(dates.includes(today)) def=today;
+  }
+  if(el.value && dates.includes(el.value)) def=el.value;   // คงค่าที่เลือกไว้ถ้ายังอยู่ในชุด
+  el.value=def;
+}
+
 async function api(path, opts={}){
   const r = await fetch(API+path, {...opts, headers:{'Content-Type':'application/json', ...authH(), ...(opts.headers||{})}});
   if(r.status===401){ setTok(null); showLogin(); throw new Error('unauthorized'); }
@@ -558,10 +575,7 @@ async function reloadAll(){ await Promise.all([loadSummary(), loadStock()]); }
 let uSearchTimer=null, uLoaded=false;
 async function loadUsageDates(){
   const d = await api('/api/kitchen/usage/dates');
-  const sel=$('uDateSel');
-  sel.innerHTML = d.dates.length
-    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
-    : '<option value="">— ไม่มีข้อมูล —</option>';
+  setDateInput('uDateSel', d.dates||[], false);
 }
 async function loadUsageKitchens(){
   const d = await api('/api/kitchen/list');
@@ -603,13 +617,7 @@ async function bootUsage(){
 let rSearchTimer=null, rLoaded=false;
 async function loadReqDates(){
   const d = await api('/api/kitchen/request/dates');
-  const sel=$('rDateSel');
-  sel.innerHTML = d.dates.length
-    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
-    : '<option value="">— ไม่มีข้อมูล —</option>';
-  // default = วันนี้ ถ้ามีในรายการ (ให้ตรงกับหน้าภาพรวม), ไม่งั้น = วันล่าสุด (option แรก)
-  const today = new Date().toLocaleDateString('en-CA');
-  if([...sel.options].some(o=>o.value===today)) sel.value = today;
+  setDateInput('rDateSel', d.dates||[], true);
 }
 async function loadReqKitchens(){
   const d = await api('/api/kitchen/list');
@@ -656,12 +664,7 @@ function pctColor(p){
 }
 async function loadSuffDates(){
   const d = await api('/api/kitchen/request/dates');
-  const sel=$('sDateSel');
-  sel.innerHTML = d.dates.length
-    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
-    : '<option value="">— ไม่มีข้อมูล —</option>';
-  const today = new Date().toLocaleDateString('en-CA');
-  if([...sel.options].some(o=>o.value===today)) sel.value = today;
+  setDateInput('sDateSel', d.dates||[], true);
 }
 async function loadSuffKitchens(){
   const d = await api('/api/kitchen/list');
@@ -748,10 +751,7 @@ async function bootSuff(){
 let wSearchTimer=null, wLoaded=false;
 async function loadWasteDates(){
   const d = await api('/api/kitchen/waste/dates');
-  const sel=$('wDateSel');
-  sel.innerHTML = d.dates.length
-    ? d.dates.map(x=>`<option value="${x}">${x}</option>`).join('')
-    : '<option value="">— ไม่มีข้อมูล —</option>';
+  setDateInput('wDateSel', d.dates||[], false);
 }
 async function loadWasteKitchens(){
   const d = await api('/api/kitchen/list');
@@ -995,11 +995,10 @@ async function loadOverviewDates(){
   if(ovDatesLoaded) return;
   try{
     const d = await api('/api/kitchen/dashboard/dates');
-    const sel = $('ovDateSel');
-    sel.innerHTML = '<option value="">ล่าสุด</option>' +
-      (d.dates||[]).map(x=>`<option value="${x}">${x}</option>`).join('');
+    const el = $('ovDateSel'), dates = d.dates||[];
+    if(dates.length){ el.max=dates[0]; el.min=dates[dates.length-1]; }
     ovDatesLoaded = true;
-  }catch(e){ /* เงียบ — ใช้ "ล่าสุด" เป็น default */ }
+  }catch(e){ /* เงียบ — เว้นว่าง = ล่าสุด */ }
 }
 
 async function loadOverview(dateArg){
@@ -1115,6 +1114,7 @@ $('refreshBtn').onclick = ()=> {
 };
 $('kitSel').onchange = ()=> reloadAll();
 $('ovDateSel').onchange = ()=> loadOverview();
+$('ovDateClear').onclick = ()=>{ $('ovDateSel').value=''; loadOverview(); };
 $('tabOverview').onclick = ()=> setTab('overview');
 $('tabSuff').onclick = ()=> setTab('suff');
 $('tabReq').onclick = ()=> setTab('req');
