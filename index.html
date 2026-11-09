@@ -243,6 +243,11 @@
             <option value="ALL">ทุกร้าน</option>
           </select>
         </div>
+        <label class="flex items-center gap-1.5 text-sm font-bold text-gray-500 cursor-pointer select-none"
+               title="ติ๊ก = แยกแสดงรายร้าน · ไม่ติ๊ก = รวมทุกร้านต่อโดนัท">
+          <input type="checkbox" id="rShopToggle" class="w-4 h-4 accent-orange-500">
+          แยกตาม shop
+        </label>
         <div class="flex-1 min-w-[180px]">
           <input id="rSearchInp" placeholder="🔍 ค้นหา รหัส / ชื่อโดนัท / ร้าน"
                  class="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
@@ -257,7 +262,7 @@
             <thead class="sticky top-0" style="background:#FFF4EC">
               <tr class="text-left text-amber-800">
                 <th class="px-3 py-2.5 font-bold">ครัว</th>
-                <th class="px-3 py-2.5 font-bold">🏪 ร้านที่สั่ง</th>
+                <th id="rShopTh" class="px-3 py-2.5 font-bold hidden">🏪 ร้านที่สั่ง</th>
                 <th class="px-3 py-2.5 font-bold">รหัส</th>
                 <th class="px-3 py-2.5 font-bold">โดนัท</th>
                 <th class="px-3 py-2.5 font-bold text-right">จำนวน (ชิ้น)</th>
@@ -651,19 +656,35 @@ async function loadReqSummary(){
   $('rKpiKit').textContent   = fmt(d.kitchens);
   $('rKpiShop').textContent  = fmt(d.shops);
 }
+// รวมแถวรายร้าน → 1 แถวต่อ (ครัว × วันผลิต × โดนัท) สำหรับมุมมอง "รวมทุกร้าน"
+function aggReqRows(rows){
+  const m = new Map();
+  for(const r of (rows||[])){
+    const key = r.kitchen+'|'+r.date+'|'+r.code;
+    const e = m.get(key);
+    if(e){ e.qty += (Number(r.qty)||0); }
+    else m.set(key, {kitchen:r.kitchen, date:r.date, code:r.code, name:r.name, qty:(Number(r.qty)||0)});
+  }
+  return [...m.values()].sort((a,b)=>b.qty-a.qty);
+}
 async function loadReqTable(){
   const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
-  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}`);
+  const showShop = $('rShopToggle').checked;
+  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
+  const rows = showShop ? (d.rows||[]) : aggReqRows(d.rows);
+  $('rShopTh').classList.toggle('hidden', !showShop);   // ซ่อน/โชว์คอลัมน์ร้าน
   const tb=$('rTbody'); tb.innerHTML='';
-  $('rRowCount').textContent = d.count+' รายการ';
-  if(!d.rows.length){ $('rEmptyMsg').classList.remove('hidden'); return; }
+  $('rRowCount').textContent = rows.length+' รายการ';
+  if(!rows.length){ $('rEmptyMsg').classList.remove('hidden'); return; }
   $('rEmptyMsg').classList.add('hidden');
-  tb.innerHTML = d.rows.map(r=>{
+  tb.innerHTML = rows.map(r=>{
     const q = Math.round(r.qty);
-    const shopLabel = r.shop_name && r.shop_name!==r.shop ? `${r.shop} · ${r.shop_name}` : (r.shop||'—');
+    const shopCell = showShop
+      ? `<td class="px-3 py-2 text-gray-600">${(r.shop_name && r.shop_name!==r.shop) ? `${r.shop} · ${r.shop_name}` : (r.shop||'—')}</td>`
+      : '';
     return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
       <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
-      <td class="px-3 py-2 text-gray-600">${shopLabel}</td>
+      ${shopCell}
       <td class="px-3 py-2 font-semibold">${r.code}</td>
       <td class="px-3 py-2">${r.name||'<span class=\"text-gray-300\">—</span>'}</td>
       <td class="px-3 py-2 text-right num font-extrabold" style="color:#FF671F">${fmt(q)}</td>
@@ -942,11 +963,17 @@ async function exportSuff(){
 
 async function exportReq(){
   const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
+  const showShop = $('rShopToggle').checked;
   const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
-  const rows = (d.rows||[]).map(r=>({
-    'วันผลิต': r.date, 'ครัว': r.kitchen, 'ร้านที่สั่ง': r.shop, 'ชื่อร้าน': r.shop_name,
-    'รหัส': r.code, 'โดนัท': r.name, 'จำนวน (ชิ้น)': Math.round(r.qty),
-  }));
+  const rows = showShop
+    ? (d.rows||[]).map(r=>({
+        'วันผลิต': r.date, 'ครัว': r.kitchen, 'ร้านที่สั่ง': r.shop, 'ชื่อร้าน': r.shop_name,
+        'รหัส': r.code, 'โดนัท': r.name, 'จำนวน (ชิ้น)': Math.round(r.qty),
+      }))
+    : aggReqRows(d.rows).map(r=>({
+        'วันผลิต': r.date, 'ครัว': r.kitchen,
+        'รหัส': r.code, 'โดนัท': r.name, 'จำนวน (ชิ้น)': Math.round(r.qty),
+      }));
   exportExcel(`kitchen_gr_${date||todayStr()}.xlsx`, {'ต้องผลิต GR': rows});
 }
 
@@ -1155,6 +1182,7 @@ $('sViewQty').onclick = ()=> setSuffView('qty');
 $('rDateSel').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
 $('rKitSel').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
 $('rShopSel').onchange = ()=> reloadReq();
+$('rShopToggle').onchange = ()=> loadReqTable();
 $('rSearchInp').addEventListener('input', ()=>{ clearTimeout(rSearchTimer); rSearchTimer=setTimeout(loadReqTable, 300); });
 $('uDateSel').onchange = ()=> reloadUsage();
 $('uKitSel').onchange = ()=> reloadUsage();
