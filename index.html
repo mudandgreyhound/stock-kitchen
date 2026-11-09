@@ -944,7 +944,7 @@ async function exportReq(){
   const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
   const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
   const rows = (d.rows||[]).map(r=>({
-    'ครัว': r.kitchen, 'ร้านที่สั่ง': r.shop, 'ชื่อร้าน': r.shop_name,
+    'วันผลิต': r.date, 'ครัว': r.kitchen, 'ร้านที่สั่ง': r.shop, 'ชื่อร้าน': r.shop_name,
     'รหัส': r.code, 'โดนัท': r.name, 'จำนวน (ชิ้น)': Math.round(r.qty),
   }));
   exportExcel(`kitchen_gr_${date||todayStr()}.xlsx`, {'ต้องผลิต GR': rows});
