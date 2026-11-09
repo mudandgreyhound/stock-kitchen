@@ -229,7 +229,9 @@
       <div class="card p-3 mb-4 flex flex-wrap gap-3 items-center">
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">📅 วันผลิต</span>
-          <input type="date" id="rDateSel" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+          <input type="date" id="rDateFrom" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
+          <span class="text-sm text-gray-400">ถึง</span>
+          <input type="date" id="rDateTo" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-orange-400">
         </div>
         <div class="flex items-center gap-2">
           <span class="text-sm font-bold text-gray-500">🏭 ครัว</span>
@@ -261,6 +263,7 @@
           <table class="w-full text-sm">
             <thead class="sticky top-0" style="background:#FFF4EC">
               <tr class="text-left text-amber-800">
+                <th id="rDateTh" class="px-3 py-2.5 font-bold hidden">📅 วันผลิต</th>
                 <th class="px-3 py-2.5 font-bold">ครัว</th>
                 <th id="rShopTh" class="px-3 py-2.5 font-bold hidden">🏪 ร้านที่สั่ง</th>
                 <th class="px-3 py-2.5 font-bold">รหัส</th>
@@ -631,7 +634,19 @@ async function bootUsage(){
 let rSearchTimer=null, rLoaded=false;
 async function loadReqDates(){
   const d = await api('/api/kitchen/request/dates');
-  setDateInput('rDateSel', d.dates||[], true);
+  setDateInput('rDateFrom', d.dates||[], true);   // default = วันนี้/ล่าสุด (เริ่มเป็นวันเดียว)
+  setDateInput('rDateTo',   d.dates||[], true);
+}
+// query string ช่วงวันผลิต (กันกรอกสลับ from>to)
+function reqDateQS(){
+  let f=$('rDateFrom').value, t=$('rDateTo').value;
+  if(f && t && f>t){ const x=f; f=t; t=x; }
+  return `date_from=${encodeURIComponent(f)}&date_to=${encodeURIComponent(t)}`;
+}
+// true = ช่วงครอบคลุมหลายวัน → ต้องโชว์คอลัมน์วันผลิต
+function reqIsRange(){
+  const f=$('rDateFrom').value, t=$('rDateTo').value;
+  return !!(f && t && f!==t) || (!f && !!t) || (!!f && !t);
 }
 async function loadReqKitchens(){
   const d = await api('/api/kitchen/list');
@@ -640,17 +655,17 @@ async function loadReqKitchens(){
   sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
 }
 async function loadReqShops(){
-  // รายชื่อร้านที่สั่ง (shop) อิงครัว+วันที่เลือก — รู้ว่า GR มาจากร้านไหนบ้าง
-  const date=$('rDateSel').value, kit=$('rKitSel').value;
-  const d = await api(`/api/kitchen/request/shops?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}`);
+  // รายชื่อร้านที่สั่ง (shop) อิงครัว+ช่วงวันผลิต — รู้ว่า GR มาจากร้านไหนบ้าง
+  const kit=$('rKitSel').value;
+  const d = await api(`/api/kitchen/request/shops?kitchen=${encodeURIComponent(kit)}&${reqDateQS()}`);
   const sel=$('rShopSel'); const cur=sel.value;
   sel.innerHTML='<option value="ALL">ทุกร้าน ('+ (d.shops||[]).length +')</option>'
     + (d.shops||[]).map(s=>`<option value="${s.code}">${s.code}${s.name&&s.name!==s.code?' · '+s.name:''} (${fmt(Math.round(s.qty))})</option>`).join('');
   sel.value = cur && [...sel.options].some(o=>o.value===cur) ? cur : 'ALL';
 }
 async function loadReqSummary(){
-  const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value;
-  const d = await api(`/api/kitchen/request/summary?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}`);
+  const kit=$('rKitSel').value, shop=$('rShopSel').value;
+  const d = await api(`/api/kitchen/request/summary?kitchen=${encodeURIComponent(kit)}&${reqDateQS()}&shop=${encodeURIComponent(shop)}`);
   $('rKpiQty').textContent   = fmt(d.total_qty);
   $('rKpiItems').textContent = fmt(d.items);
   $('rKpiKit').textContent   = fmt(d.kitchens);
@@ -665,24 +680,28 @@ function aggReqRows(rows){
     if(e){ e.qty += (Number(r.qty)||0); }
     else m.set(key, {kitchen:r.kitchen, date:r.date, code:r.code, name:r.name, qty:(Number(r.qty)||0)});
   }
-  return [...m.values()].sort((a,b)=>b.qty-a.qty);
+  return [...m.values()].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || b.qty-a.qty);
 }
 async function loadReqTable(){
-  const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
+  const kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
   const showShop = $('rShopToggle').checked;
-  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
+  const showDate = reqIsRange();
+  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&${reqDateQS()}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
   const rows = showShop ? (d.rows||[]) : aggReqRows(d.rows);
   $('rShopTh').classList.toggle('hidden', !showShop);   // ซ่อน/โชว์คอลัมน์ร้าน
+  $('rDateTh').classList.toggle('hidden', !showDate);   // โชว์คอลัมน์วันผลิตเมื่อเลือกเป็นช่วง
   const tb=$('rTbody'); tb.innerHTML='';
   $('rRowCount').textContent = rows.length+' รายการ';
   if(!rows.length){ $('rEmptyMsg').classList.remove('hidden'); return; }
   $('rEmptyMsg').classList.add('hidden');
   tb.innerHTML = rows.map(r=>{
     const q = Math.round(r.qty);
+    const dateCell = showDate ? `<td class="px-3 py-2 text-gray-500 num">${r.date||'—'}</td>` : '';
     const shopCell = showShop
       ? `<td class="px-3 py-2 text-gray-600">${(r.shop_name && r.shop_name!==r.shop) ? `${r.shop} · ${r.shop_name}` : (r.shop||'—')}</td>`
       : '';
     return `<tr class="border-b border-gray-50 hover:bg-orange-50/40">
+      ${dateCell}
       <td class="px-3 py-2 text-gray-500">${r.kitchen}</td>
       ${shopCell}
       <td class="px-3 py-2 font-semibold">${r.code}</td>
@@ -962,9 +981,10 @@ async function exportSuff(){
 }
 
 async function exportReq(){
-  const date=$('rDateSel').value, kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
+  const kit=$('rKitSel').value, shop=$('rShopSel').value, q=$('rSearchInp').value.trim();
   const showShop = $('rShopToggle').checked;
-  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&date=${encodeURIComponent(date)}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
+  const fnDate = ($('rDateFrom').value||'') + (reqIsRange() ? '_'+($('rDateTo').value||'') : '');
+  const d = await api(`/api/kitchen/request?kitchen=${encodeURIComponent(kit)}&${reqDateQS()}&shop=${encodeURIComponent(shop)}&search=${encodeURIComponent(q)}&limit=10000`);
   const rows = showShop
     ? (d.rows||[]).map(r=>({
         'วันผลิต': r.date, 'ครัว': r.kitchen, 'ร้านที่สั่ง': r.shop, 'ชื่อร้าน': r.shop_name,
@@ -974,7 +994,7 @@ async function exportReq(){
         'วันผลิต': r.date, 'ครัว': r.kitchen,
         'รหัส': r.code, 'โดนัท': r.name, 'จำนวน (ชิ้น)': Math.round(r.qty),
       }));
-  exportExcel(`kitchen_gr_${date||todayStr()}.xlsx`, {'ต้องผลิต GR': rows});
+  exportExcel(`kitchen_gr_${fnDate||todayStr()}.xlsx`, {'ต้องผลิต GR': rows});
 }
 
 async function exportStock(){
@@ -1179,7 +1199,8 @@ $('sSearchInp').addEventListener('input', ()=>{
 });
 $('sViewPct').onclick = ()=> setSuffView('pct');
 $('sViewQty').onclick = ()=> setSuffView('qty');
-$('rDateSel').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
+$('rDateFrom').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
+$('rDateTo').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
 $('rKitSel').onchange = async ()=>{ await loadReqShops(); reloadReq(); };
 $('rShopSel').onchange = ()=> reloadReq();
 $('rShopToggle').onchange = ()=> loadReqTable();
