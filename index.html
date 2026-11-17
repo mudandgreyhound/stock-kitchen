@@ -132,8 +132,8 @@
       <div id="ovKitchens" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3"></div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
         <div class="card p-4">
-          <div class="text-sm font-bold text-gray-700 mb-3">📊 เปรียบเทียบมูลค่าสต๊อกรายครัว</div>
-          <div id="ovBar" class="flex items-end gap-1" style="height:150px"></div>
+          <div class="text-sm font-bold text-gray-700 mb-3">🥧 สัดส่วนมูลค่าสต๊อกรายครัว</div>
+          <div id="ovPie" class="flex flex-wrap items-center justify-center gap-x-5 gap-y-3"></div>
         </div>
         <div class="card p-4">
           <div class="text-sm font-bold text-gray-700 mb-2">⚠️ สรุปประเด็น · Dead stock</div>
@@ -1124,6 +1124,84 @@ async function loadOverviewDates(){
   }catch(e){ /* เงียบ — เว้นว่าง = ล่าสุด */ }
 }
 
+// ── กราฟวงกลม (donut) สัดส่วนมูลค่าสต๊อกรายครัว ──
+//   5 ครัวใหญ่สุด = สีเดียวกับการ์ดครัว (OV_PALETTE ตามลำดับ) · ที่เหลือรวมเป็น "อื่น ๆ" สีเทา
+//   (pie หลายชิ้นเกินไปอ่านไม่ออก และ palette มี 9 สี วนซ้ำแล้วสีชนกัน)
+//   รายการด้านข้างแสดงครบทุกครัว (มูลค่า + %) · ชี้ชิ้น/แถว = ไฮไลต์ + tooltip
+const PIE_TOP = 5, PIE_OTHER = '#c9ccd3';
+function renderStockPie(kk){
+  const el = $('ovPie'); if(!el) return;
+  const rows = kk.map((k,i)=>({k, i})).filter(x=>x.k.stock_val>0);   // kk เรียงมูลค่ามาก→น้อยจาก API แล้ว
+  const total = rows.reduce((s,x)=>s+x.k.stock_val, 0);
+  if(!total){ el.innerHTML='<div class="text-sm text-gray-400 py-6 text-center w-full">— ไม่มีข้อมูล —</div>'; return; }
+  const top = rows.slice(0, PIE_TOP), rest = rows.slice(PIE_TOP);
+  const slices = top.map(x=>({label:`${x.k.code} · ${x.k.name}`, val:x.k.stock_val,
+                              color:OV_PALETTE[x.i % OV_PALETTE.length]}));
+  if(rest.length) slices.push({label:`อื่น ๆ (${rest.length} ครัว)`, val:rest.reduce((s,x)=>s+x.k.stock_val,0),
+                               color:PIE_OTHER, other:true});
+  const pct = v => v/total*100;
+  const money = v => v>=1e6 ? '฿'+fmt(v/1e6,2)+'M' : '฿'+fmt(v/1e3,0)+'K';
+
+  // วาดชิ้นด้วย path (ขอบขาว 2px = ช่องว่างระหว่างชิ้น)
+  const S=180, cx=90, cy=90, R=86, r=56;
+  const pt = (rad,a)=>`${(cx+rad*Math.cos(a)).toFixed(2)},${(cy+rad*Math.sin(a)).toFixed(2)}`;
+  let a0 = -Math.PI/2;
+  const paths = slices.map((s,idx)=>{
+    const frac = s.val/total;
+    if(frac >= 0.9999)      // ครัวเดียว = วงแหวนเต็ม
+      return `<circle data-i="${idx}" cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="${s.color}" stroke-width="${R-r}"/>`;
+    const a1 = a0 + frac*2*Math.PI, large = (a1-a0) > Math.PI ? 1 : 0;
+    const d = `M${pt(R,a0)} A${R},${R} 0 ${large} 1 ${pt(R,a1)} L${pt(r,a1)} A${r},${r} 0 ${large} 0 ${pt(r,a0)} Z`;
+    a0 = a1;
+    return `<path data-i="${idx}" d="${d}" fill="${s.color}" stroke="#fff" stroke-width="2" stroke-linejoin="round" style="cursor:pointer;transition:opacity .15s"/>`;
+  }).join('');
+
+  // รายการข้างขวา: ครบทุกครัว (ครัวใน "อื่น ๆ" ใช้สีเทา) + ⚠ ถ้ามีเอกสารโอนผิดปกติ
+  const list = rows.map((x,n)=>{
+    const sIdx = n < PIE_TOP ? n : slices.length-1;
+    const c = n < PIE_TOP ? slices[n].color : PIE_OTHER;
+    return `<div class="pie-row flex items-center gap-2 text-[11px] py-[3px] px-1.5 rounded" data-i="${sIdx}" style="cursor:default">
+      <span class="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style="background:${c}"></span>
+      <span class="text-gray-600 truncate flex-1 min-w-0" title="${escH(x.k.code+' · '+x.k.name)}">${escH(x.k.code)} · ${escH(x.k.name)}${x.k.alert_count?' <span class="text-red-500" title="มีเอกสารโอนผิดปกติ — มูลค่าอาจสูงเกินจริง">⚠</span>':''}</span>
+      <span class="num font-bold text-gray-700 whitespace-nowrap">${money(x.k.stock_val)}</span>
+      <span class="num text-gray-400 whitespace-nowrap w-10 text-right">${fmt(pct(x.k.stock_val),1)}%</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="relative shrink-0" style="width:${S}px;height:${S}px">
+      <svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img"
+           aria-label="สัดส่วนมูลค่าสต๊อกรายครัว รวม ${money(total)} — ${slices.map(s=>s.label+' '+fmt(pct(s.val),1)+'%').join(', ')}">${paths}</svg>
+      <div id="ovPieCenter" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-9"></div>
+    </div>
+    <div class="flex-1 min-w-[230px] max-w-full">${list}</div>`;
+
+  // hover: ชิ้น ↔ แถว ไฮไลต์คู่กัน + รายละเอียดขึ้นกลางวง (แทน tooltip ลอย — ไม่ล้นการ์ดบนมือถือ)
+  const center = $('ovPieCenter'), marks = el.querySelectorAll('svg [data-i]'), lrows = el.querySelectorAll('.pie-row');
+  const showTotal = ()=> center.innerHTML =
+    `<div class="text-[10px] text-gray-400">รวม ${rows.length} ครัว</div>
+     <div class="num text-lg font-extrabold text-gray-700 leading-tight">${money(total)}</div>`;
+  const focus = idx=>{
+    marks.forEach(m=>m.style.opacity = (idx==null || +m.dataset.i===idx) ? '1' : '.35');
+    lrows.forEach(r=>r.style.background = (idx!=null && +r.dataset.i===idx) ? '#f6f3ef' : '');
+    if(idx==null) return showTotal();
+    const s = slices[idx], name = s.other ? s.label : s.label.split(' - ')[0];   // "K0003 · KBP"
+    center.innerHTML =
+      `<div class="text-[10px] font-bold text-gray-500 leading-tight w-full truncate">${escH(name)}</div>
+       <div class="num text-lg font-extrabold text-gray-700 leading-tight">${fmt(pct(s.val),1)}%</div>
+       <div class="num text-[10px] text-gray-500">${money(s.val)}</div>`;
+  };
+  showTotal();
+  marks.forEach(m=>{
+    m.addEventListener('mouseenter', ()=>focus(+m.dataset.i));
+    m.addEventListener('mouseleave', ()=>focus(null));
+  });
+  lrows.forEach(r=>{
+    r.addEventListener('mouseenter', ()=>focus(+r.dataset.i));
+    r.addEventListener('mouseleave', ()=>focus(null));
+  });
+}
+
 async function loadOverview(dateArg){
   await loadOverviewDates();
   // date: ถ้าไม่ส่งมา อ่านจาก dropdown; ว่าง = ล่าสุด (backend ใช้พฤติกรรมเดิม)
@@ -1190,19 +1268,8 @@ async function loadOverview(dateArg){
   $('ovKitchens').querySelectorAll('[data-anim]').forEach(el=>
     animateNum(el, parseFloat(el.dataset.anim), {prefix:el.dataset.prefix||''}));
 
-  // bar chart (CSS) — มูลค่าสต๊อกรายครัว
-  const kf = v => v>=1000 ? Math.round(v/1000)+'K' : Math.round(v);
-  const maxV = Math.max(...kk.map(k=>k.stock_val), 1);
-  $('ovBar').innerHTML = kk.map((k,i)=>{
-    const c=OV_PALETTE[i%OV_PALETTE.length];
-    const h=Math.max(4, Math.round(k.stock_val/maxV*100));
-    const short=(k.name||k.code||'').split(' - ')[0].trim();
-    return `<div class="flex-1 min-w-0 flex flex-col items-center justify-end gap-1" style="height:100%">
-      <span class="text-[9px] num font-bold text-gray-600 truncate w-full text-center">${kf(k.stock_val)}</span>
-      <div class="w-full rounded-t" style="background:${c};height:${h}%"></div>
-      <span class="text-[9px] text-gray-500 truncate w-full text-center" title="${k.name}">${short}</span>
-    </div>`;
-  }).join('');
+  // กราฟวงกลม (donut) — สัดส่วนมูลค่าสต๊อกรายครัว
+  renderStockPie(kk);
 
   // dead stock summary
   const deadK = kk.filter(k=>k.dead>0);
