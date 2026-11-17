@@ -28,6 +28,14 @@
     background:#fff; border-left:1px solid #f0ded5; border-top:1px solid #f0ded5;
     transform:rotate(45deg);
   }
+  /* ── เตือนเอกสารโอนเข้า (TI) ผิดปกติ — hover แบบเดียวกับการ์ดของเสีย ── */
+  .ov-alert-card{position:relative;cursor:help}
+  .ov-alert-card:hover > .ov-tip{opacity:1;visibility:visible;transform:translateY(0)}
+  .ov-tip.ov-tip-wide{min-width:min(320px,88vw);max-width:360px}
+  .ov-tip.ov-tip-fit{left:-12px;right:-12px;min-width:0;max-width:none}   /* กว้างเท่าการ์ดครัว */
+  .ov-alert-chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;
+    color:#b91c1c;background:#fee2e2;border-radius:6px;padding:1px 6px;line-height:1.5;white-space:nowrap}
+  .ov-tip .ov-alert-chip{white-space:normal}   /* ใน tooltip ให้ตัดบรรทัดได้ (การ์ดครัวบนมือถือแคบ) */
 </style>
 </head>
 <body class="min-h-screen">
@@ -101,9 +109,10 @@
         <div class="card p-4"><div class="text-xs font-bold text-amber-700">ยอดต้องผลิตโดนัทรวม (ชิ้น)</div>
           <div class="num text-2xl font-extrabold" style="color:#FF671F" id="ovReqQty">0</div>
           <div class="text-[11px] text-gray-400" id="ovReqSub">—</div></div>
-        <div class="card p-4"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต็อกคงเหลือรวม</div>
+        <div class="card p-4" id="ovStockCard"><div class="text-xs font-bold" style="color:#b02c68">มูลค่าสต็อกคงเหลือรวม <span id="ovStockWarnIco" class="hidden text-red-500">⚠</span></div>
           <div class="num text-2xl font-extrabold" style="color:#E91E8C" id="ovStockVal">฿0</div>
-          <div class="text-[11px] text-gray-400" id="ovStockSub">—</div></div>
+          <div class="text-[11px] text-gray-400" id="ovStockSub">—</div>
+          <div id="ovStockTip" class="ov-tip ov-tip-wide hidden"></div></div>
         <div class="card p-4"><div class="text-xs font-bold text-blue-700">วัตถุดิบใช้รวม</div>
           <div class="num text-2xl font-extrabold text-blue-600" id="ovUsageCost">฿0</div>
           <div class="text-[11px] text-gray-400" id="ovUsageSub">—</div></div>
@@ -924,6 +933,39 @@ async function loadWasteTip(wasteDate){
   }
 }
 
+// ── tooltip เอกสารโอนเข้า (TI) ผิดปกติ (hover การ์ดมูลค่าสต๊อกรวม / ป้ายบนการ์ดครัว) ──
+//   ข้อมูลมากับ /api/kitchen/dashboard → transfer_alerts (เรียงมูลค่ามาก→น้อย)
+const escH = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function tiReason(r){
+  if(r.type==='value') return `มูลค่าสูงผิดปกติ (≥ ฿${fmt(r.limit)})`;
+  if(r.type==='qty')   return `จำนวน ${fmt(r.x,1)}× ของปกติ (~${fmt(r.typical,2)})`;
+  if(r.type==='cost')  return `ทุน/หน่วย ${fmt(r.x,1)}× ของปกติ (~฿${fmt(r.typical,2)})`;
+  return 'ผิดปกติ';
+}
+function tiAlertTip(alerts, showKitchen){
+  const MAX = 5, total = alerts.reduce((s,a)=>s+(Number(a.amt)||0), 0);
+  const rows = alerts.slice(0, MAX).map(a=>`
+    <div class="py-1.5 border-b border-gray-50">
+      <div class="flex justify-between gap-2 text-[11px]">
+        <span class="font-bold text-gray-700">${showKitchen?escH(a.kitchen_code)+' · ':''}${escH(a.doc)}</span>
+        <span class="text-gray-400 whitespace-nowrap">${escH(a.doc_date||'')}</span></div>
+      <div class="text-[11px] text-gray-600 truncate">${escH(a.item_name||a.item_code)} <span class="text-gray-300">${escH(a.item_code)}</span></div>
+      <div class="flex justify-between gap-2 text-[11px]">
+        <span class="num text-gray-500">${fmt(a.qty,2)} ${escH(a.unit||'')} × ฿${fmt(a.cost,2)}</span>
+        <span class="num font-extrabold text-red-600 whitespace-nowrap">฿${fmt(a.amt)}</span></div>
+      <div class="flex flex-wrap gap-1 mt-0.5">${(a.reasons||[]).map(r=>`<span class="ov-alert-chip">${tiReason(r)}</span>`).join('')}</div>
+      ${a.cur_qty!=null?`<div class="text-[10px] text-gray-400 mt-0.5">คงเหลือตอนนี้ ${fmt(a.cur_qty,2)} ${escH(a.unit||'')}${a.user_id?' · คีย์โดย '+escH(a.user_id):''}</div>`:''}
+    </div>`).join('');
+  return `
+    <div class="text-xs font-bold text-gray-700 mb-2">⚠️ เอกสารโอนเข้า (TI) ผิดปกติ</div>
+    <div class="flex items-center justify-between gap-3 pb-2 mb-1 border-b border-gray-100">
+      <span class="text-[12px] font-bold text-gray-600">💰 มูลค่าในบรรทัดที่ผิดปกติ</span>
+      <span class="num text-sm font-extrabold text-red-600 whitespace-nowrap">฿${fmt(total)}</span></div>
+    ${rows}
+    ${alerts.length>MAX?`<div class="text-[11px] text-gray-400 pt-1">+ อีก ${alerts.length-MAX} รายการ (ดูทั้งหมดใน Export Excel)</div>`:''}
+    <div class="text-[10px] text-gray-300 mt-2">ย้อนหลัง 60 วัน · เฉพาะวัตถุดิบที่ยังมีในสต๊อก · แก้เอกสารใน CM POS ของครัว แล้วยอดจะปรับเองรอบดึงถัดไป (ทุกชั่วโมง)</div>`;
+}
+
 // ══════════ EXPORT EXCEL (ทุกแท็บ) ══════════
 // ดึงข้อมูลสดจาก API ตาม filter ปัจจุบันของแต่ละแท็บ (ไม่ได้ export เฉพาะที่โชว์บนจอ)
 // แล้วแปลงเป็น .xlsx ฝั่ง browser ด้วย SheetJS — ไม่ผ่าน backend, ไม่ต้องเพิ่ม endpoint
@@ -958,8 +1000,19 @@ async function exportOverview(){
     'dead stock': k.dead, 'วันที่ production ล่าสุด': k.prod_date,
     'Day End ล่าสุด': k.dayend_date, 'สถานะ Day End': k.dayend_status,
     'Day End ห่างกี่วัน': k.dayend_days_behind,
+    'เอกสารโอนผิดปกติ (บรรทัด)': k.alert_count||0,
+    'มูลค่าในเอกสารผิดปกติ': k.alert_amt||0,
   }));
-  exportExcel(`kitchen_overview_${todayStr()}.xlsx`, {'ภาพรวมทุกครัว': rows});
+  const alertRows = (d.transfer_alerts||[]).map(a=>({
+    'ครัว': a.kitchen_code, 'ชื่อครัว': a.kitchen_name, 'เอกสาร': a.doc, 'วันที่เอกสาร': a.doc_date,
+    'รหัส': a.item_code, 'วัตถุดิบ': a.item_name, 'หน่วย': a.unit,
+    'จำนวน': a.qty, 'ทุน/หน่วย': a.cost, 'มูลค่า': a.amt,
+    'เหตุผล': (a.reasons||[]).map(tiReason).join(' · '),
+    'คงเหลือตอนนี้': a.cur_qty, 'คีย์โดย': a.user_id,
+  }));
+  exportExcel(`kitchen_overview_${todayStr()}.xlsx`,
+    alertRows.length ? {'ภาพรวมทุกครัว': rows, 'เอกสารโอนผิดปกติ': alertRows}
+                     : {'ภาพรวมทุกครัว': rows});
 }
 
 async function exportSuff(){
@@ -1085,6 +1138,16 @@ async function loadOverview(dateArg){
   $('ovReqSub').textContent    = 'วันนี้ '+(dz.request||'—');
   animateNum($('ovStockVal'),  t.stock_val, {prefix:'฿'});
   $('ovStockSub').textContent  = t.items+' รายการ';
+  // ── เอกสารโอนเข้า (TI) ผิดปกติ: ป้ายเตือน + hover ดูรายการ (API เก่ายังไม่มี field = ไม่โชว์) ──
+  const tiAlerts = Array.isArray(d.transfer_alerts) ? d.transfer_alerts : [];
+  const hasTi = tiAlerts.length > 0;
+  $('ovStockCard').classList.toggle('ov-alert-card', hasTi);
+  $('ovStockWarnIco').classList.toggle('hidden', !hasTi);
+  $('ovStockTip').classList.toggle('hidden', !hasTi);
+  if(hasTi){
+    $('ovStockSub').innerHTML = `${fmt(t.items)} รายการ<div class="mt-1"><span class="ov-alert-chip">⚠ เอกสารโอนผิดปกติ ${tiAlerts.length} · ชี้เพื่อดู</span></div>`;
+    $('ovStockTip').innerHTML = tiAlertTip(tiAlerts, true);
+  }
   animateNum($('ovUsageCost'), t.use_cost, {prefix:'฿'});
   $('ovUsageSub').textContent  = 'วันล่าสุด '+(dz.usage||'—');
   // ── ของเสีย: โชว์เป็นเงิน ฿ เหมือน "วัตถุดิบใช้รวม" ──
@@ -1105,11 +1168,17 @@ async function loadOverview(dateArg){
       : k.dayend_status==='LATE1' ? 'text-amber-600'
       : k.dayend_status==='LATE_LONG' ? 'text-red-600'
       : 'text-gray-400';
-    return `<div class="card overflow-hidden">
-      <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c}">${k.code} · ${k.name}</div>
+    // ไม่ใช้ overflow-hidden แล้ว (จะตัด tooltip เตือนเอกสาร) → มนมุมหัวการ์ดเองแทน
+    const kAlerts = tiAlerts.filter(a=>a.kitchen_code===k.code);
+    const stockBlock = `
+        <div class="text-[10px] text-gray-400">มูลค่าสต็อกคงเหลือ${kAlerts.length?` <span class="ov-alert-chip">⚠ เอกสารผิดปกติ ${kAlerts.length}</span>`:''}</div>
+        <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>`;
+    return `<div class="card">
+      <div class="px-3 py-1.5 text-white text-sm font-bold truncate" style="background:${c};border-radius:13px 13px 0 0">${k.code} · ${k.name}</div>
       <div class="p-3">
-        <div class="text-[10px] text-gray-400">มูลค่าสต็อกคงเหลือ</div>
-        <div class="num text-lg font-extrabold" style="color:${c}" data-anim="${k.stock_val}" data-prefix="฿">฿0</div>
+        ${kAlerts.length
+          ? `<div class="ov-alert-card">${stockBlock}<div class="ov-tip ov-tip-fit">${tiAlertTip(kAlerts, false)}</div></div>`
+          : stockBlock}
         <div class="flex justify-between text-[11px] mt-1 gap-2"><span class="text-gray-500">จำนวนวัตถุดิบในสต็อก</span><span class="num font-bold whitespace-nowrap">${k.items}</span></div>
         <div class="flex justify-between text-[11px] gap-2"><span class="text-gray-500">ยอดต้องผลิตโดนัท (ชิ้น)</span><span class="num font-bold whitespace-nowrap">${fmt(k.req_qty)}</span></div>
         <div class="flex justify-between text-[11px] gap-2" title="100% = ใช้แป้งเท่าสูตรมาตรฐาน · ต่ำกว่า 100% = ใช้วัตถุดิบเกินสูตร"><span class="text-gray-500">ใช้วัตถุดิบเทียบสูตร</span><span class="num font-bold whitespace-nowrap ${k.yield_pct!=null&&k.yield_pct<80?'text-red-600':'text-green-600'}">${k.yield_pct!=null?fmt(k.yield_pct,1)+'%':'—'}</span></div>
